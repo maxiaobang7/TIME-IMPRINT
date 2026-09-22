@@ -1,0 +1,7 @@
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.png binary
+*.jpg binary
+*.ttf binary
+public/fonts/OFL-MaShanZheng.txt -whitespace

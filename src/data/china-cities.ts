@@ -1,0 +1,61 @@
+export interface OfflineCity {
+  province: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+}
+
+// Compact city-center index for offline province/city matching.
+export const chinaCities: OfflineCity[] = [
+  { province: "北京市", city: "北京市", latitude: 39.9042, longitude: 116.4074 },
+  { province: "天津市", city: "天津市", latitude: 39.0842, longitude: 117.2009 },
+  { province: "河北省", city: "石家庄市", latitude: 38.0428, longitude: 114.5149 },
+  { province: "河北省", city: "唐山市", latitude: 39.6305, longitude: 118.1802 },
+  { province: "山西省", city: "太原市", latitude: 37.8706, longitude: 112.5489 },
+  { province: "内蒙古自治区", city: "呼和浩特市", latitude: 40.8426, longitude: 111.7492 },
+  { province: "辽宁省", city: "沈阳市", latitude: 41.8057, longitude: 123.4315 },
+  { province: "辽宁省", city: "大连市", latitude: 38.914, longitude: 121.6147 },
+  { province: "吉林省", city: "长春市", latitude: 43.8171, longitude: 125.3235 },
+  { province: "黑龙江省", city: "哈尔滨市", latitude: 45.8038, longitude: 126.5349 },
+  { province: "上海市", city: "上海市", latitude: 31.2304, longitude: 121.4737 },
+  { province: "江苏省", city: "南京市", latitude: 32.0603, longitude: 118.7969 },
+  { province: "江苏省", city: "苏州市", latitude: 31.2989, longitude: 120.5853 },
+  { province: "江苏省", city: "无锡市", latitude: 31.4912, longitude: 120.3119 },
+  { province: "江苏省", city: "徐州市", latitude: 34.2044, longitude: 117.2858 },
+  { province: "浙江省", city: "杭州市", latitude: 30.2741, longitude: 120.1551 },
+  { province: "浙江省", city: "宁波市", latitude: 29.8683, longitude: 121.544 },
+  { province: "浙江省", city: "温州市", latitude: 28.0006, longitude: 120.6994 },
+  { province: "浙江省", city: "嘉兴市", latitude: 30.7461, longitude: 120.7555 },
+  { province: "安徽省", city: "合肥市", latitude: 31.8206, longitude: 117.2272 },
+  { province: "福建省", city: "福州市", latitude: 26.0745, longitude: 119.2965 },
+  { province: "福建省", city: "厦门市", latitude: 24.4798, longitude: 118.0894 },
+  { province: "福建省", city: "泉州市", latitude: 24.8741, longitude: 118.6757 },
+  { province: "江西省", city: "南昌市", latitude: 28.6829, longitude: 115.8582 },
+  { province: "山东省", city: "济南市", latitude: 36.6512, longitude: 117.1201 },
+  { province: "山东省", city: "青岛市", latitude: 36.0671, longitude: 120.3826 },
+  { province: "山东省", city: "烟台市", latitude: 37.4638, longitude: 121.4479 },
+  { province: "河南省", city: "郑州市", latitude: 34.7466, longitude: 113.6254 },
+  { province: "河南省", city: "洛阳市", latitude: 34.6197, longitude: 112.454 },
+  { province: "湖北省", city: "武汉市", latitude: 30.5928, longitude: 114.3055 },
+  { province: "湖南省", city: "长沙市", latitude: 28.2282, longitude: 112.9388 },
+  { province: "广东省", city: "广州市", latitude: 23.1291, longitude: 113.2644 },
+  { province: "广东省", city: "深圳市", latitude: 22.5431, longitude: 114.0579 },
+  { province: "广东省", city: "珠海市", latitude: 22.271, longitude: 113.5767 },
+  { province: "广东省", city: "佛山市", latitude: 23.0218, longitude: 113.1219 },
+  { province: "广东省", city: "东莞市", latitude: 23.0205, longitude: 113.7518 },
+  { province: "广西壮族自治区", city: "南宁市", latitude: 22.817, longitude: 108.3665 },
+  { province: "广西壮族自治区", city: "桂林市", latitude: 25.2736, longitude: 110.2902 },
+  { province: "海南省", city: "海口市", latitude: 20.044, longitude: 110.1983 },
+  { province: "海南省", city: "三亚市", latitude: 18.2528, longitude: 109.5119 },
+  { province: "重庆市", city: "重庆市", latitude: 29.563, longitude: 106.5516 },
+  { province: "四川省", city: "成都市", latitude: 30.5728, longitude: 104.0668 },
+  { province: "四川省", city: "绵阳市", latitude: 31.4675, longitude: 104.6796 },
+  { province: "贵州省", city: "贵阳市", latitude: 26.647, longitude: 106.6302 },
+  { province: "云南省", city: "昆明市", latitude: 25.0389, longitude: 102.7183 },
+  { province: "西藏自治区", city: "拉萨市", latitude: 29.652, longitude: 91.1721 },
+  { province: "陕西省", city: "西安市", latitude: 34.3416, longitude: 108.9398 },
+  { province: "甘肃省", city: "兰州市", latitude: 36.0611, longitude: 103.8343 },
+  { province: "青海省", city: "西宁市", latitude: 36.6171, longitude: 101.7782 },
+  { province: "宁夏回族自治区", city: "银川市", latitude: 38.4872, longitude: 106.2309 },
+  { province: "新疆维吾尔自治区", city: "乌鲁木齐市", latitude: 43.8256, longitude: 87.6168 }
+];
