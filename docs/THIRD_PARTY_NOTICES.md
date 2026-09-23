@@ -6,11 +6,11 @@
 
 ## 字体
 
-旅行明信片使用 Ma Shan Zheng，来源 Google Fonts 的 google/fonts 仓库，按 SIL Open Font License 使用。许可证原文随 public/fonts/OFL-MaShanZheng.txt 一同提供。
+旅行明信片使用 Ma Shan Zheng，来源 Google Fonts 的 google/fonts 仓库，按 SIL Open Font License 使用。许可证原文随 public/fonts/OFL-MaShanZheng.txt 一同提供。原始 TTF 保存在 scripts/assets；网站使用保留完整字库的 WOFF2 压缩版本，不裁剪用户可输入的字符。
 
 ## 图像与图标
 
-public/studio/sample-scenes.png 是项目已有的合成示例场景；README 演示图片由这些场景生成，不使用维护者私人相册。public/icons 中是项目现用小女孩图标。仓库尚未对项目代码、品牌和这些素材另行指定再分发许可证。
+scripts/assets/sample-scenes.png 是项目已有的合成示例场景；网站使用 public/studio 下的 WebP 压缩图和预生成模板预览。README 演示图片由这些场景生成，不使用维护者私人相册。public/icons 中是项目现用小女孩图标。仓库尚未对项目代码、品牌和这些素材另行指定再分发许可证。
 
 ## 地点数据和服务
 

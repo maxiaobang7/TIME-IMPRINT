@@ -19,7 +19,7 @@ npm run dev -- --port 5182
 
 当前应用按域名根路径部署。GitHub 仓库只是源代码托管，不会自动创建站点。若使用 GitHub Pages 的项目子路径，需要先统一修改资源地址、Service Worker scope 和 manifest，再验证。
 
-部署后检查首页、模板、导入、保存，以及 /manifest.webmanifest、/sw.js、/icons/icon-192.png、/fonts/MaShanZheng-Regular.ttf 均返回正确文件而不是 HTML fallback。生产 Service Worker 只缓存同源 GET 请求；后续版本应更新 public/sw.js 中的缓存版本。
+部署后检查首页、模板、导入、保存，以及 /manifest.webmanifest、/sw.js、/icons/icon-192.png、/fonts/MaShanZheng-Regular.woff2 均返回正确文件而不是 HTML fallback。生产 Service Worker 只缓存同源 GET 请求；npm run build 会生成核心离线资源清单和内容哈希版本，无需手动更新缓存版本。首次联网需完成资源缓存后才能离线使用；核心缓存包含示例和导出依赖；字体和 HEIC 转换模块按首次使用加载并缓存，首次离线使用这两项需要先联网。
 
 HTTPS 不会让网页获得静默写入相册权限，但能启用浏览器支持的系统文件分享和 Service Worker。
 
@@ -45,3 +45,9 @@ npm run demo
 ## 已知限制
 
 HEIC 转换依赖较大，构建可能显示 chunk 大小警告；它通过动态导入加载，不属于构建失败。在线地理服务的公开上线许可、配额和调用策略需要部署者另行核实，不建议默认切换为公网自动查询。
+
+## 首页资源与性能回归
+
+原始示例图和完整 TTF 位于 scripts/assets，不会发布到 dist。修改素材后，使用 Python（Pillow、fonttools、brotli）运行 `python scripts/compress-assets.py`，再运行 `npm run samples`，重新生成 WebP 与静态模板预览。调整模板渲染时也需运行 `npm run samples`。日常安装与构建直接使用已提交的压缩产物，无需 Python。
+
+`npm run test:optimizations` 检查首页不下载字体/HEIC、日期月龄联动、损坏图片容错、批量取消、完整尺寸导出，以及 8 张 1200 万像素合成图导入。它在生产构建后运行，已加入 CI。该测试不代表所有手机的内存上限。

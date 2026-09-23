@@ -14,7 +14,7 @@ interface LocationAlias {
 }
 
 export function loadBabyProfile(): BabyProfile {
-  const fallback = { name: "小满", birthday: "2024-05-20" };
+  const fallback = { name: "", birthday: "" };
   try {
     const raw = localStorage.getItem(babyKey);
     return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
@@ -69,14 +69,13 @@ export function saveLocationAlias(latitude: number, longitude: number, name: str
   save(locationAliasesKey, aliases.slice(0, 100));
 }
 
-export function loadLocationAlias(latitude: number, longitude: number, regionKey?: string): string | undefined {
+export function loadLocationAlias(latitude: number, longitude: number, _regionKey?: string): string | undefined {
   const aliases = loadLocationAliases();
   const exact = aliases
     .map((alias) => ({ alias, distance: distanceInMeters(latitude, longitude, alias.latitude, alias.longitude) }))
     .filter((item) => item.distance < 200)
     .sort((a, b) => a.distance - b.distance)[0]?.alias.name;
-  if (exact) return exact;
-  return regionKey ? aliases.find((alias) => alias.regionKey === regionKey)?.name : undefined;
+  return exact;
 }
 
 export function clearLocationAliases() {

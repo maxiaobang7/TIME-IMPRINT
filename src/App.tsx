@@ -1,5 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { Icons } from "./icons";
+import { useMemo } from "react";
+import { babyAgeText, parseCaptureDate } from "./utils/date";
 import { StudioHome, StudioTemplateLibrary } from "./Studio";
 import { SavePhotoDialog } from "./SavePhotoDialog";
 import { isAppleMobile } from "./services/export";
@@ -85,7 +87,7 @@ export function App() {
   const [template, setTemplate] = useState<WatermarkTemplate>(
     defaultTemplates[0],
   );
-  const [style, setStyle] = useState<WatermarkStyle>({
+  const [savedStyle, setStyle] = useState<WatermarkStyle>({
     ...defaultTemplates[0].style,
   });
   const [babyProfile, setBabyProfile] = useState<BabyProfile>(() =>
@@ -94,11 +96,18 @@ export function App() {
   const [locationSettings, setLocationSettings] = useState<LocationSettings>(
     () => loadLocationSettings(),
   );
+  const style = useMemo(() => locationSettings.privacyLevel === "hidden"
+    ? { ...savedStyle, showLocation: false, showCoordinate: false }
+    : savedStyle, [savedStyle, locationSettings.privacyLevel]);
   const [editorSection, setEditorSection] = useState<EditorSection>("style");
   const [busyText, setBusyText] = useState("");
+  const [batchCancelable, setBatchCancelable] = useState(false);
+  const [importFailures, setImportFailures] = useState<string[]>([]);
+  const batchController = useRef<AbortController | undefined>(undefined);
   const [toast, setToast] = useState("");
   const [albumPhoto, setAlbumPhoto] = useState<{ blob: Blob; filename: string }>();
   const [appleMobile] = useState(() => isAppleMobile());
+  const [textEditing, setTextEditing] = useState(false);
   const [outputFormat, setOutputFormat] = useState<"jpeg" | "png">("jpeg");
   const [printSettings, setPrintSettings] = useState(defaultPrintSettings);
   const [desktop, setDesktop] = useState(
@@ -135,7 +144,8 @@ export function App() {
   }, [mobileScreen, tab, desktop]);
 
   useEffect(() => {
-    if (!photos.length) return;
+    // Keep Canvas work away from iOS keyboard activation and text composition.
+    if (!photos.length || textEditing) return;
     const version = ++renderVersion.current;
     const handle = window.setTimeout(() => {
       renderSelected(version).catch(() => showToast("预览生成失败，请重试"));
@@ -145,6 +155,7 @@ export function App() {
       ++renderVersion.current;
     };
   }, [
+    textEditing,
     style,
     selectedId,
     babyProfile,
@@ -161,40 +172,48 @@ export function App() {
   const canExport = renderedPhotos.length > 0;
 
   async function handleFiles(files: FileList | null) {
-    if (!files?.length) return;
-    setBusyText("正在读取照片...");
+    if (!files?.length || batchController.current) return;
+    const controller = new AbortController();
+    batchController.current = controller;
+    setBatchCancelable(true);
+    setImportFailures([]);
     const loaded: PhotoItem[] = [];
-    let imported = false;
+    const failed: string[] = [];
     try {
-      for (const file of Array.from(files))
-        loaded.push(await fileToPhoto(file));
-      let incoming = loaded;
-      const hasCoordinates = incoming.some(
-        (photo) => photo.editedCoordinateText,
-      );
-      if (hasCoordinates && locationSettings.privacyLevel !== "hidden") {
-        setBusyText("正在解析拍摄地点...");
-        incoming = await resolvePhotoLocations(incoming);
+      const incoming = Array.from(files);
+      for (const [index, file] of incoming.entries()) {
+        if (controller.signal.aborted) break;
+        setBusyText(`正在导入 ${index + 1}/${incoming.length}：${file.name}`);
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        let photo: PhotoItem | undefined;
+        try {
+          photo = await fileToPhoto(file);
+          controller.signal.throwIfAborted();
+          if (photo.editedCoordinateText && locationSettings.privacyLevel !== "hidden") {
+            [photo] = await resolvePhotoLocations([photo]);
+          }
+          const blob = await renderWatermark({ photo, style, babyProfile, outputFormat, printSettings, maxEdge: 1200 });
+          controller.signal.throwIfAborted();
+          loaded.push({ ...photo, renderedBlob: blob, renderedUrl: URL.createObjectURL(blob) });
+        } catch (error) {
+          if (photo) revokePhotoUrls(photo);
+          if (controller.signal.aborted) break;
+          failed.push(`${file.name}：${error instanceof Error ? error.message : "无法读取图片"}`);
+        }
       }
-      setTab("home");
-      setBusyText("正在生成水印...");
-      const nextStyle = style;
-      const rendered = await renderPhotoList(incoming, nextStyle);
-      imported = true;
-      setPhotos((current) => [...current, ...rendered]);
-      setSelectedId(rendered[0]?.id ?? "");
-      setEditorSection("text");
-      setMobileScreen("editor");
-      focusEditorAfterUpload();
-      showToast(
-        hasCoordinates
-          ? "已导入 " + incoming.length + " 张照片"
-          : "未读到 GPS，可手动填写地点",
-      );
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "照片导入失败");
+      if (loaded.length) {
+        setPhotos(current => [...current, ...loaded]);
+        setSelectedId(loaded[0].id);
+        setTab("home");
+        setEditorSection("text");
+        setMobileScreen("editor");
+        focusEditorAfterUpload();
+      }
+      setImportFailures(failed);
+      showToast(`${controller.signal.aborted ? "已停止，保留" : "已导入"} ${loaded.length} 张照片${failed.length ? `，跳过 ${failed.length} 张` : ""}`);
     } finally {
-      if (!imported) loaded.forEach(revokePhotoUrls);
+      batchController.current = undefined;
+      setBatchCancelable(false);
       setBusyText("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -208,6 +227,7 @@ export function App() {
       babyProfile,
       outputFormat,
       printSettings,
+      maxEdge: 1200,
     });
     if (version !== renderVersion.current) return;
     const renderedUrl = URL.createObjectURL(blob);
@@ -240,13 +260,18 @@ export function App() {
     const result: PhotoItem[] = [];
     try {
       for (const photo of items) {
+        batchController.current?.signal.throwIfAborted();
+        setBusyText(`正在更新预览 ${result.length + 1}/${items.length}`);
+        await new Promise(resolve => window.setTimeout(resolve, 0));
         const blob = await renderWatermark({
           photo,
           style: nextStyle,
           babyProfile,
           outputFormat,
           printSettings,
+          maxEdge: 1200,
         });
+        batchController.current?.signal.throwIfAborted();
         result.push({
           ...photo,
           renderedBlob: blob,
@@ -262,15 +287,10 @@ export function App() {
 
   async function rerenderAll() {
     if (!photos.length) return;
-    setBusyText("正在批量生成...");
-    try {
+    await runExport(async () => {
       await renderMany();
       showToast("批量水印已更新");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "批量更新失败");
-    } finally {
-      setBusyText("");
-    }
+    }, true);
   }
 
   function updateSelectedPhoto(patch: Partial<PhotoItem>) {
@@ -392,31 +412,36 @@ export function App() {
     }
   }
 
-  async function runExport(action: () => Promise<void>) {
+  async function runExport(action: (signal: AbortSignal) => Promise<void>, cancellable = false) {
+    if (batchController.current) return;
+    const controller = new AbortController();
+    batchController.current = controller;
+    setBatchCancelable(cancellable);
     setBusyText("正在生成...");
     try {
-      await action();
+      await action(controller.signal);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "导出失败，请重试");
+      showToast(controller.signal.aborted ? "已取消，照片和修改已保留" : error instanceof Error ? error.message : "导出失败，请重试");
     } finally {
+      batchController.current = undefined;
+      setBatchCancelable(false);
       setBusyText("");
     }
   }
 
-  async function freshPhotos() {
-    const result: PhotoItem[] = [];
-    for (const photo of photos)
-      result.push({
+  async function* freshPhotos(signal: AbortSignal) {
+    for (const [index, photo] of photos.entries()) {
+      signal.throwIfAborted();
+      setBusyText(`正在生成 ${index + 1}/${photos.length}：${photo.name}`);
+      await new Promise(resolve => window.setTimeout(resolve, 0));
+      const renderedBlob = await renderWatermark({ photo, style, babyProfile, outputFormat, printSettings });
+      signal.throwIfAborted();
+      yield {
         ...photo,
-        renderedBlob: await renderWatermark({
-          photo,
-          style,
-          babyProfile,
-          outputFormat,
-          printSettings,
-        }),
-      });
-    return result;
+        renderedBlob,
+      };
+    }
+    setBusyText("正在打包文件...");
   }
 
 
@@ -455,19 +480,20 @@ export function App() {
 
   async function downloadZip() {
     if (!renderedPhotos.length) return;
-    await runExport(async () =>
-      downloadBlob(await makeZip(await freshPhotos()), "时光印记-照片.zip"),
-    );
+    await runExport(async signal => {
+      const blob = await makeZip(freshPhotos(signal), signal);
+      signal.throwIfAborted();
+      downloadBlob(blob, "时光印记-照片.zip");
+    }, true);
   }
 
   async function downloadPdf() {
     if (!renderedPhotos.length) return;
-    await runExport(async () =>
-      downloadBlob(
-        await makePdf(await freshPhotos(), printSettings),
-        "时光印记-照片.pdf",
-      ),
-    );
+    await runExport(async signal => {
+      const blob = await makePdf(freshPhotos(signal), printSettings, signal);
+      signal.throwIfAborted();
+      downloadBlob(blob, "时光印记-照片.pdf");
+    }, true);
   }
 
   function showToast(message: string) {
@@ -477,7 +503,11 @@ export function App() {
 
   function focusEditorAfterUpload() {
     window.setTimeout(() => {
-      if (window.matchMedia("(min-width: 861px)").matches) {
+      if (
+        !appleMobile &&
+        window.matchMedia("(min-width: 861px) and (pointer: fine)").matches &&
+        !document.activeElement?.matches("input, textarea, select, [contenteditable]")
+      ) {
         editorPanelRef.current?.focus({ preventScroll: true });
       }
     }, 120);
@@ -546,6 +576,11 @@ export function App() {
             <span>{photos.length ? "添加照片" : "选择照片"}</span>
           </button>
         </header>
+        {importFailures.length > 0 && <section className="import-failures" role="status">
+          <strong>已跳过 {importFailures.length} 张无法读取的照片，其余照片可继续编辑。</strong>
+          <ul>{importFailures.map((failure, index) => <li key={index}>{failure}</li>)}</ul>
+          <button onClick={() => setImportFailures([])}>关闭提示</button>
+        </section>}
         {tab === "home" && !editing && (
           <StudioHome
             template={template}
@@ -588,7 +623,7 @@ export function App() {
                       aria-label={"选择照片 " + (index + 1)}
                       aria-pressed={photo.id === selectedPhoto?.id}
                     >
-                      <img src={photo.previewUrl} alt={photo.name} />
+                      <img src={photo.renderedUrl ?? photo.previewUrl} alt={photo.name} loading="lazy" />
                       <span>{index + 1}</span>
                     </button>
                     <button
@@ -621,7 +656,14 @@ export function App() {
                 </button>
               </div>
             </section>
-            <aside className="inspector" ref={editorPanelRef} tabIndex={-1}>
+            <aside className="inspector" ref={editorPanelRef} tabIndex={-1}
+              onFocusCapture={(event) => {
+                if (appleMobile && event.target.matches('input:not([type]), input[type="text"], textarea')) setTextEditing(true);
+              }}
+              onBlurCapture={(event) => {
+                if (!(event.relatedTarget instanceof Element) || !event.relatedTarget.matches('input:not([type]), input[type="text"], textarea')) setTextEditing(false);
+              }}
+            >
               <div className="inspector-heading">
                 <h2>编辑照片</h2>
                 <span>{selectedPhoto?.name}</span>
@@ -640,6 +682,7 @@ export function App() {
                 ))}
               </div>
               <div className="inspector-body" role="tabpanel">
+                {appleMobile && editorSection === "text" && <p className="hint-text">结束输入后更新预览，保存时会使用最新文字。</p>}
                 {editorSection === "style" && (
                   <>
                     <div className="studio-template-grid">
@@ -801,6 +844,11 @@ export function App() {
             <div className="loading-card">
               <Icons.Loader2 className="spin" size={26} />
               <span>{busyText}</span>
+              {batchCancelable && <button onClick={() => {
+                batchController.current?.abort();
+                setBusyText("正在停止，当前照片处理结束后生效...");
+                setBatchCancelable(false);
+              }}>取消后续处理</button>}
             </div>
           </div>
         )}
@@ -832,6 +880,7 @@ function SettingsScreen(props: {
 
       <div className="form-card">
         <h2>宝宝档案</h2>
+        <p className="hint-text">填写宝宝生日后，才会根据照片拍摄时间计算月龄。</p>
         <label>
           名称
           <input
@@ -971,6 +1020,7 @@ function SettingsScreen(props: {
           </div>
         </div>
 
+        {props.locationSettings.privacyLevel === "hidden" && <p className="hint-text">已隐藏水印中的地点和经纬度，包括已导入照片；手动输入的事件和寄语不受影响。</p>}
         {props.locationSettings.privacyLevel === "precise" && (
           <div className="field-chips">
             {locationFieldOptions.map((field) => {
@@ -1146,6 +1196,8 @@ function TextEditor(props: {
   onPhotoChange: (patch: Partial<PhotoItem>) => void;
   onStyleChange: (style: WatermarkStyle) => void;
 }) {
+  const capturedAt = parseCaptureDate(props.selectedPhoto?.editedDateText ?? "");
+  const age = capturedAt ? babyAgeText(props.babyProfile.birthday, capturedAt) : "";
   return (
     <div className="control-stack">
       <h3>文字内容</h3>
@@ -1168,6 +1220,11 @@ function TextEditor(props: {
           }
         />
       </label>
+      <p className="hint-text" data-testid="capture-age-hint">
+        {!capturedAt ? "填写有效日期（例如 2026-09-23 10:30）后可计算月龄；自定义文字仍会保留。"
+          : !props.babyProfile.birthday ? "在设置中填写宝宝生日，即可根据这里的日期计算月龄。"
+          : age ? `此日期对应月龄：${age}` : "此日期早于生日，或生日无效，暂不显示月龄。"}
+      </p>
       <label>
         拍摄地点
         <input

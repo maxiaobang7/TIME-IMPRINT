@@ -6,9 +6,11 @@
   "scripts": {
     "test": "node --test Tests/web.test.mjs",
     "demo": "node scripts/capture-demo.mjs",
+    "samples": "node scripts/build-samples.mjs",
     "test:production": "node scripts/check-production.mjs",
+    "test:optimizations": "node scripts/check-optimizations.mjs",
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/build-offline.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "engines": {

@@ -39,7 +39,7 @@ export function loadSamplePhoto(id = "travel-memory") {
       samples.delete(id);
       reject(new Error("示例加载失败"));
     };
-    image.src = "/studio/sample-scenes.png";
+    image.src = "/studio/sample-scenes.webp";
   });
   samples.set(id, sample);
   return sample;

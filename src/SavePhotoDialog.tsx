@@ -14,10 +14,12 @@ export function SavePhotoDialog({ photo, onClose }: {
   useEffect(() => {
     const objectUrl = URL.createObjectURL(photo.blob);
     setUrl(objectUrl);
-    dialog.current?.showModal();
+    const element = dialog.current;
+    element?.showModal();
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      element?.close();
       URL.revokeObjectURL(objectUrl);
       document.body.style.overflow = previous;
     };

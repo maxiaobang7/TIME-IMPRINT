@@ -26,8 +26,9 @@ export async function reverseGeocode(input: ReverseLocationInput): Promise<strin
 
   const timeoutMs = input.timeoutMs ?? 3_000;
   const signal = timeoutSignal(timeoutMs);
-  const parts = input.settings.provider === "amap" && input.settings.amapKey.trim()
-    ? await reverseWithAmap(input.latitude, input.longitude, input.settings.amapKey.trim(), signal, timeoutMs)
+  if (input.settings.provider === "amap" && !input.settings.amapKey.trim()) return undefined;
+  const parts = input.settings.provider === "amap"
+    ? await reverseWithAmap(input.latitude, input.longitude, input.settings.amapKey.trim(), timeoutMs)
     : await reverseWithOsm(input.latitude, input.longitude, signal);
 
   return formatLocation(parts, input.settings);
@@ -103,7 +104,6 @@ async function reverseWithAmap(
   latitude: number,
   longitude: number,
   key: string,
-  signal: AbortSignal,
   timeoutMs: number
 ): Promise<AddressParts | undefined> {
   const gcj = wgs84ToGcj02(latitude, longitude);
@@ -115,8 +115,8 @@ async function reverseWithAmap(
   url.searchParams.set("roadlevel", "0");
   url.searchParams.set("output", "json");
 
-  const data = await jsonp<Record<string, unknown>>(url, timeoutMs).catch(async () => {
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal });
+  const data = await jsonp<Record<string, unknown>>(new URL(url), timeoutMs).catch(async () => {
+    const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: timeoutSignal(timeoutMs) });
     return response.ok ? response.json() : undefined;
   });
   if (data?.status !== "1") return undefined;

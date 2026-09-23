@@ -15,10 +15,72 @@ async function source(path) {
   );
 }
 const { printLayout } = await source("src/services/print-layout.ts");
-const { getOfflineRegion } = await source("src/services/location.ts");
-const { renderWatermark, drawIcon } = await source("src/services/watermark.ts");
+const { getOfflineRegion, reverseGeocode } = await source("src/services/location.ts");
+
+test("AMap fallback uses JSON and a fresh timeout without switching providers", async () => {
+  const oldWindow = globalThis.window;
+  const oldDocument = globalThis.document;
+  const oldFetch = globalThis.fetch;
+  const requests = [];
+  try {
+    globalThis.window = { setTimeout: () => 1, clearTimeout: () => {} };
+    globalThis.document = {
+      createElement: () => ({ remove() {} }),
+      head: { appendChild(script) { assert.ok(new URL(script.src).searchParams.has("callback")); script.onerror(); } },
+    };
+    globalThis.fetch = async (url, options) => {
+      requests.push(url);
+      assert.equal(new URL(url).searchParams.has("callback"), false);
+      assert.equal(options.signal.aborted, false);
+      return { ok: true, json: async () => ({ status: "1", regeocode: { addressComponent: { city: "杭州" } } }) };
+    };
+    const input = { latitude: 30, longitude: 120, settings: { provider: "amap", amapKey: "", privacyLevel: "cityOnly", fields: [] } };
+    assert.equal(await reverseGeocode(input), undefined);
+    assert.equal(requests.length, 0);
+    assert.equal(await reverseGeocode({ ...input, settings: { ...input.settings, amapKey: "test" } }), "杭州");
+    assert.equal(requests.length, 1);
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    globalThis.fetch = oldFetch;
+  }
+});
+const { renderWatermark, drawIcon, buildWatermarkLines } = await source("src/services/watermark.ts");
 const { defaultTemplates } = await source("src/data/templates.ts");
 const storage = await source("src/utils/storage.ts");
+const { formatCaptureDate, babyAgeText, parseCaptureDate } = await source("src/utils/date.ts");
+
+test("edited capture dates drive age, including photos without EXIF", () => {
+  const style = { ...defaultTemplates[0].style, showBabyAge: true };
+  const baby = { name: "宝宝", birthday: "2024-01-31" };
+  const photo = { meta: { capturedAt: new Date(2020, 0, 1) }, editedDateText: "2024-03-01 10:30" };
+  assert.equal(buildWatermarkLines(photo, style, baby)[0].text, "宝宝 · 1个月1天");
+  assert.equal(buildWatermarkLines({ ...photo, meta: {}, editedDateText: "2026年1月31日" }, style, baby)[0].text, "宝宝 · 2岁0个月");
+  for (const text of ["", "自定义日期", "2026-02-30", "2026-13-01", "2026-01-01 24:01"]) {
+    assert.equal(parseCaptureDate(text), undefined);
+    assert.equal(buildWatermarkLines({ ...photo, editedDateText: text }, style, baby)[0].text, "宝宝");
+  }
+  for (const text of ["2024-02-29", "2024.02.29", "2024/2/29", "2024年2月29日 09:10"]) {
+    assert.equal(parseCaptureDate(text)?.getDate(), 29);
+  }
+});
+
+test("month-end birthdays never produce negative age days", () => {
+  assert.equal(babyAgeText("2026-01-31", new Date(2026, 2, 1)), "1个月1天");
+  assert.equal(babyAgeText("2024-01-31", new Date(2024, 1, 29)), "1个月0天");
+  assert.equal(babyAgeText("2024-02-29", new Date(2025, 1, 28)), "1岁0个月");
+  assert.equal(babyAgeText("2026-01-31", new Date(2026, 0, 31)), "第 1 天");
+});
+
+test("missing or invalid EXIF dates stay empty instead of becoming today", () => {
+  assert.equal(formatCaptureDate(), "");
+  assert.equal(formatCaptureDate(new Date("invalid")), "");
+  assert.equal(formatCaptureDate(new Date(2026, 8, 23, 10, 5)), "2026年9月23日 10:05");
+});
+
+test("new users do not export the demo baby's identity", () => {
+  assert.deepEqual(storage.loadBabyProfile(), { name: "", birthday: "" });
+});
 const { withPrintDensity } = await source("src/services/image-density.ts");
 const { isAppleMobile, canShareImage, shareBlob } = await source("src/services/export.ts");
 
@@ -165,7 +227,7 @@ test("invalid, overseas and uncovered coordinates do not invent a city", () => {
     assert.equal(getOfflineRegion(lat, lon), undefined);
   assert.ok(getOfflineRegion(30.2741, 120.1551)?.city.includes("杭州"));
 });
-test("manual location memory matches proximity first, then the same region", () => {
+test("manual location memory matches nearby coordinates but never another spot in the same city", () => {
   const values = new Map();
   globalThis.localStorage = {
     getItem: (key) => values.get(key),
@@ -173,7 +235,8 @@ test("manual location memory matches proximity first, then the same region", () 
     removeItem: (key) => values.delete(key),
   };
   storage.saveLocationAlias(30.27, 120.15, "西湖", "浙江|杭州");
-  assert.equal(storage.loadLocationAlias(30.5, 120.4, "浙江|杭州"), "西湖");
+  assert.equal(storage.loadLocationAlias(30.2701, 120.1501, "浙江|杭州"), "西湖");
+  assert.equal(storage.loadLocationAlias(30.5, 120.4, "浙江|杭州"), undefined);
   assert.equal(storage.loadLocationAlias(31, 121, "上海|上海"), undefined);
   storage.clearLocationAliases();
   assert.equal(
@@ -269,7 +332,7 @@ for (const position of [
       width: 0,
       height: 0,
       getContext: () => context,
-      toBlob: (callback, type) => callback(new Blob(["test"], { type })),
+      toBlob: (callback, type) => { canvas.outputWidth = canvas.width; canvas.outputHeight = canvas.height; callback(new Blob(["test"], { type })); },
     };
     globalThis.document = { createElement: () => canvas };
     globalThis.Image = class {
@@ -301,14 +364,16 @@ for (const position of [
       printSettings: { size: "3", fit: "cover", marginMm: 10 },
     });
     assert.equal(blob.type, "image/png");
-    assert.equal(canvas.width, 600);
+    assert.equal(canvas.outputWidth, 600);
+    assert.equal(canvas.width, 1);
+    assert.equal(canvas.height, 1);
     const margin = (10 / 25.4) * 300;
     assert.equal(labels.length, 5);
     for (const line of labels) {
       assert.ok(line.x >= margin);
-      assert.ok(line.x + line.maxWidth <= canvas.width - margin + 0.01);
+      assert.ok(line.x + line.maxWidth <= canvas.outputWidth - margin + 0.01);
       assert.ok(line.y - line.fontSize / 2 >= margin);
-      assert.ok(line.y + line.fontSize / 2 <= canvas.height - margin);
+      assert.ok(line.y + line.fontSize / 2 <= canvas.outputHeight - margin);
     }
   });
 }
@@ -357,7 +422,7 @@ for (const size of ["3", "5", "6"]) {
         width: 0,
         height: 0,
         getContext: () => context,
-        toBlob: (callback, type) => callback(new Blob(["test"], { type })),
+        toBlob: (callback, type) => { canvas.outputWidth = canvas.width; canvas.outputHeight = canvas.height; callback(new Blob(["test"], { type })); },
       };
       globalThis.document = { createElement: () => canvas };
       globalThis.Image = class {
@@ -404,9 +469,9 @@ for (const size of ["3", "5", "6"]) {
                   ? label.x - label.width / 2
                   : label.x;
             assert.ok(left >= margin - 0.01);
-            assert.ok(left + label.width <= canvas.width - margin + 0.01);
+            assert.ok(left + label.width <= canvas.outputWidth - margin + 0.01);
             assert.ok(label.y - label.font / 2 >= margin);
-            assert.ok(label.y + label.font / 2 <= canvas.height - margin);
+            assert.ok(label.y + label.font / 2 <= canvas.outputHeight - margin);
           }
         }
       }

@@ -4,7 +4,7 @@ import type {
   RenderOptions,
   WatermarkStyle,
 } from "../types";
-import { babyAgeText } from "../utils/date";
+import { babyAgeText, parseCaptureDate } from "../utils/date";
 import { printLayout } from "./print-layout";
 import { withPrintDensity } from "./image-density";
 import { drawFrame, frameGeometry } from "./watermark-frame";
@@ -14,81 +14,87 @@ export async function renderWatermark(options: RenderOptions): Promise<Blob> {
   if (options.style.frame === "postcard") await loadPostcardFont();
   const image = await loadImage(options.photo.previewUrl);
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("当前浏览器无法创建 Canvas。");
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("当前浏览器无法创建 Canvas。");
 
-  const layout = printLayout(
-    image.naturalWidth,
-    image.naturalHeight,
-    options.printSettings,
-  );
-  if (
-    options.style.layout === "paper" &&
-    (!options.printSettings || options.printSettings.size === "original")
-  ) {
-    const geometry = frameGeometry(
-      layout.width,
-      layout.height,
-      options.style.frame,
+    const layout = printLayout(
+      image.naturalWidth,
+      image.naturalHeight,
+      options.printSettings,
+    );
+    if (
+      options.style.layout === "paper" &&
+      (!options.printSettings || options.printSettings.size === "original")
+    ) {
+      const geometry = frameGeometry(
+        layout.width,
+        layout.height,
+        options.style.frame,
+        options.style,
+      );
+      const scale = Math.min(1, 3200 / Math.max(geometry.width, geometry.height));
+      layout.width = geometry.width * scale;
+      layout.height = geometry.height * scale;
+      layout.margin = geometry.inset * scale;
+    }
+    if (options.maxEdge) {
+      const scale = Math.min(
+        1,
+        options.maxEdge / Math.max(layout.width, layout.height),
+      );
+      for (const key of [
+        "width",
+        "height",
+        "margin",
+        "x",
+        "y",
+        "drawWidth",
+        "drawHeight",
+      ] as const)
+        layout[key] *= scale;
+    }
+    canvas.width = layout.width;
+    canvas.height = layout.height;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const lines = buildWatermarkLines(
+      options.photo,
       options.style,
+      options.babyProfile,
     );
-    const scale = Math.min(1, 3200 / Math.max(geometry.width, geometry.height));
-    layout.width = geometry.width * scale;
-    layout.height = geometry.height * scale;
-    layout.margin = geometry.inset * scale;
-  }
-  if (options.maxEdge) {
-    const scale = Math.min(
-      1,
-      options.maxEdge / Math.max(layout.width, layout.height),
-    );
-    for (const key of [
-      "width",
-      "height",
-      "margin",
-      "x",
-      "y",
-      "drawWidth",
-      "drawHeight",
-    ] as const)
-      layout[key] *= scale;
-  }
-  canvas.width = layout.width;
-  canvas.height = layout.height;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const lines = buildWatermarkLines(
-    options.photo,
-    options.style,
-    options.babyProfile,
-  );
-  if (options.style.layout === "paper") {
-    drawFrame(ctx, canvas, image, lines, options, layout.margin);
-  } else {
-    ctx.drawImage(
-      image,
-      layout.x,
-      layout.y,
-      layout.drawWidth,
-      layout.drawHeight,
-    );
-    drawWatermark(ctx, canvas, lines, options.style, layout.margin);
-  }
+    if (options.style.layout === "paper") {
+      drawFrame(ctx, canvas, image, lines, options, layout.margin);
+    } else {
+      ctx.drawImage(
+        image,
+        layout.x,
+        layout.y,
+        layout.drawWidth,
+        layout.drawHeight,
+      );
+      drawWatermark(ctx, canvas, lines, options.style, layout.margin);
+    }
 
-  const mime = options.outputFormat === "png" ? "image/png" : "image/jpeg";
-  const quality = options.outputFormat === "png" ? undefined : 0.94;
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => {
-        if (result) resolve(result);
-        else reject(new Error("导出图片失败。"));
-      },
-      mime,
-      quality,
-    );
-  });
+    const mime = options.outputFormat === "png" ? "image/png" : "image/jpeg";
+    const quality = options.outputFormat === "png" ? undefined : 0.94;
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (result) resolve(result);
+          else reject(new Error("导出图片失败。"));
+        },
+        mime,
+        quality,
+      );
+    });
 
-  return withPrintDensity(blob);
+    return await withPrintDensity(blob);
+  } finally {
+    // Release the large pixel buffer before processing the next batch item.
+    canvas.width = canvas.height = 1;
+    image.removeAttribute?.("src");
+  }
 }
 
 export function buildWatermarkLines(
@@ -99,8 +105,9 @@ export function buildWatermarkLines(
   const lines: Array<{ icon: string; text: string }> = [];
 
   if (style.showBabyAge) {
-    const age = photo.meta.capturedAt
-      ? babyAgeText(babyProfile.birthday, photo.meta.capturedAt)
+    const capturedAt = parseCaptureDate(photo.editedDateText);
+    const age = capturedAt
+      ? babyAgeText(babyProfile.birthday, capturedAt)
       : "";
     if (babyProfile.name || age)
       lines.push({

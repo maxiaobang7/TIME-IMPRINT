@@ -1,4 +1,4 @@
-const CACHE = "time-imprint-studio-v11";
+const CACHE = "time-imprint-studio-v12";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -26,6 +26,15 @@ self.addEventListener("fetch", (event) => {
         if (response.ok) event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {}));
         return response;
       })
-      .catch(async () => (await caches.match(event.request)) || Response.error())
+      .catch(async () => {
+        const cache = await caches.open(CACHE);
+        // These are same-origin static files; module requests can carry Origin
+        // while installation fetches do not. Ignore Vary for the offline copy.
+        const cached = await cache.match(event.request, {
+          ignoreVary: true,
+          ignoreSearch: new URL(event.request.url).pathname.startsWith("/icons/"),
+        });
+        return cached || Response.error();
+      })
   );
 });

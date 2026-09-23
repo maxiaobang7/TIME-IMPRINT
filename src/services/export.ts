@@ -40,57 +40,48 @@ export function canShareImage(blob: Blob, filename: string) {
   }
 }
 
-export async function makeZip(photos: PhotoItem[]) {
+type PhotoStream = Iterable<PhotoItem> | AsyncIterable<PhotoItem>;
+
+export async function makeZip(photos: PhotoStream, signal?: AbortSignal) {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
-  photos.forEach((photo, index) => {
+  let index = 0;
+  for await (const photo of photos) {
+    signal?.throwIfAborted();
     if (photo.renderedBlob) {
       const extension = photo.renderedBlob.type === "image/png" ? "png" : "jpg";
       zip.file(`${String(index + 1).padStart(2, "0")}-${safeName(photo.name)}.${extension}`, photo.renderedBlob);
     }
-  });
-  return zip.generateAsync({ type: "blob" });
+    index++;
+  }
+  signal?.throwIfAborted();
+  return zip.generateAsync({ type: "blob", streamFiles: true }, () => signal?.throwIfAborted());
 }
 
-export async function makePdf(photos: PhotoItem[], settings: PrintSettings = defaultPrintSettings) {
+export async function makePdf(photos: PhotoStream, settings: PrintSettings = defaultPrintSettings, signal?: AbortSignal) {
   const { jsPDF } = await import("jspdf");
   let pdf: InstanceType<typeof jsPDF> | undefined;
+  const imageReader = new jsPDF();
 
-  for (let i = 0; i < photos.length; i += 1) {
-    const photo = photos[i];
+  for await (const photo of photos) {
+    signal?.throwIfAborted();
     if (!photo.renderedBlob) continue;
-    const dataUrl = await blobToDataUrl(photo.renderedBlob);
-    const image = await imageFromDataUrl(dataUrl);
-    const { paperWidth: width, paperHeight: height } = printLayout(image.naturalWidth, image.naturalHeight, settings);
+    const data = new Uint8Array(await photo.renderedBlob.arrayBuffer());
+    // jsPDF reads image dimensions without an extra decoded image or base64 copy.
+    const dimensions = imageReader.getImageProperties(data);
+    const { paperWidth: width, paperHeight: height } = printLayout(dimensions.width, dimensions.height, settings);
     const orientation = width >= height ? "landscape" : "portrait";
     if (!pdf) pdf = new jsPDF({ orientation, unit: "mm", format: [width, height] });
     else pdf.addPage([width, height], orientation);
-    pdf.addImage(dataUrl, photo.renderedBlob.type === "image/png" ? "PNG" : "JPEG", 0, 0, width, height);
+    pdf.addImage(data, photo.renderedBlob.type === "image/png" ? "PNG" : "JPEG", 0, 0, width, height);
   }
 
   if (!pdf) throw new Error("没有可导出的照片");
+  signal?.throwIfAborted();
   return pdf.output("blob");
 }
 
 
 function safeName(name: string) {
   return name.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]/g, "-");
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-}
-
-function imageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("PDF 图片加载失败。"));
-    image.src = dataUrl;
-  });
 }

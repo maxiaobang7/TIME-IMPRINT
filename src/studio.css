@@ -27,7 +27,7 @@
 .save-photo-dialog footer button { flex: 1 1 180px; min-height: 44px; }
 @font-face {
   font-family: "PostcardHand";
-  src: url("/fonts/MaShanZheng-Regular.ttf") format("truetype");
+  src: url("/fonts/MaShanZheng-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -1099,6 +1099,9 @@ legend {
   gap: 8px;
   font-size: 12px;
 }
+.import-failures { margin: 16px auto; padding: 16px; max-width: 960px; background: #fff4df; border: 1px solid #ebd4ab; border-radius: 8px; overflow-wrap: anywhere; }
+.import-failures ul { max-height: 150px; overflow: auto; padding-left: 24px; }
+.loading-card { max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
 @media (max-width: 360px) {
   .studio-header {
     padding: 0 12px;
