@@ -30,6 +30,7 @@ export async function renderWatermark(options: RenderOptions): Promise<Blob> {
       layout.width,
       layout.height,
       options.style.frame,
+      options.style,
     );
     const scale = Math.min(1, 3200 / Math.max(geometry.width, geometry.height));
     layout.width = geometry.width * scale;

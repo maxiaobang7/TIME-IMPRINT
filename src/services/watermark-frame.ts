@@ -1,20 +1,29 @@
-import type { RenderOptions, WatermarkStyle } from "../types";
+import type { PrintSettings, RenderOptions, WatermarkStyle } from "../types";
 import { drawPostcard } from "./postcard";
 
 type Frame = WatermarkStyle["frame"];
 type Line = { icon: string; text: string };
 
+export function frameSpacing(unit: number, frame: Frame, style: Partial<WatermarkStyle> = {}, size: PrintSettings["size"] = "original") {
+  const factor = style.frameWidth === "narrow" ? 0.58 : style.frameWidth === "wide" ? 1.4 : 1;
+  const footerScale = Number.isFinite(style.frameFooterScale) ? Math.min(1.5, Math.max(0.85, style.frameFooterScale!)) : 1;
+  const presets = { "3": [50.8, 3, 12, 3], "5": [88.9, 5, 18, 4], "6": [101.6, 6, 21, 5] };
+  const preset = size === "original" ? undefined : presets[size];
+  const inset = preset ? unit / preset[0] * preset[1] * factor : unit * 0.06 * factor;
+  const baseFooter = preset ? unit / preset[0] * preset[2] : unit * 0.24;
+  const footer = baseFooter * (frame === "growth" || frame === "postcard" ? 1 : 0.9) * footerScale;
+  const safe = preset ? unit / preset[0] * preset[3] : unit * 0.045;
+  return { inset, top: inset + (frame === "gallery" || frame === "film" ? unit * 0.055 : 0), footer, safe };
+}
+
 export function frameGeometry(
   width: number,
   height: number,
   frame: Frame = "minimal",
+  style: Partial<WatermarkStyle> = {},
 ) {
   const unit = Math.min(width, height);
-  const inset = unit * 0.035;
-  const top =
-    frame === "gallery" ? unit * 0.1 : frame === "film" ? unit * 0.085 : inset;
-  const footer =
-    unit * (frame === "growth" ? 0.2 : frame === "postcard" ? 0.19 : 0.17);
+  const { inset, top, footer } = frameSpacing(unit, frame, style);
   return {
     width: width + inset * 2,
     height: height + top + footer,
@@ -41,15 +50,17 @@ export function drawFrame(
     image.naturalWidth,
     image.naturalHeight,
     frame,
+    options.style,
   );
   const scale = canvas.width / geometry.width;
-  const inset = free ? geometry.inset * scale : Math.max(margin, unit * 0.025);
+  const spacing = frameSpacing(unit, frame, options.style, options.printSettings?.size);
+  const inset = free ? geometry.inset * scale : spacing.inset;
   const top = free
     ? geometry.top * scale
-    : inset + (frame === "gallery" || frame === "film" ? unit * 0.055 : 0);
+    : Math.max(spacing.top, frame === "gallery" || frame === "film" ? margin + unit * 0.055 : 0);
   const footer = free
     ? geometry.footer * scale
-    : Math.max(unit * (frame === "growth" ? 0.2 : frame === "postcard" ? 0.19 : 0.17), inset * 2.6);
+    : Math.max(spacing.footer, margin + unit * 0.09);
   const width = Math.max(1, canvas.width - inset * 2);
   const height = Math.max(1, canvas.height - top - footer);
   ctx.fillStyle = dark ? "#131514" : frame === "growth" ? "#fffafb" : "#ffffff";
@@ -71,7 +82,7 @@ export function drawFrame(
   );
   ctx.restore();
   const footerTop = canvas.height - footer;
-  const safe = Math.max(margin, inset);
+  const safe = Math.max(margin, spacing.safe, inset);
   const available = Math.max(1, canvas.width - safe * 2);
   if (frame === "postcard") {
     const y = footerTop + unit * 0.02;

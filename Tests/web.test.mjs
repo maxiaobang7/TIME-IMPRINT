@@ -425,7 +425,7 @@ test("template order and default match the requested catalogue", () => {
   assert.equal(new Set(defaultTemplates.map((item) => item.id)).size, 6);
 });
 
-test("free-size frames add narrow borders without changing the source image ratio", async () => {
+test("free-size frames add borders without changing the source image ratio", async () => {
   const { frameGeometry } = await source("src/services/watermark-frame.ts");
   for (const template of defaultTemplates.filter(
     (item) => item.style.layout === "paper",
@@ -440,4 +440,24 @@ test("free-size frames add narrow borders without changing the source image rati
       assert.equal(box.height - box.top - box.footer, height);
     }
   }
+});
+
+test("frame controls preserve image geometry and physical paper defaults", async () => {
+  const { frameGeometry, frameSpacing } = await source("src/services/watermark-frame.ts");
+  for (const [size, shortMm, borderMm, footerMm] of [["3", 50.8, 3, 12], ["5", 88.9, 5, 18], ["6", 101.6, 6, 21]]) {
+    const spacing = frameSpacing(shortMm * 300 / 25.4, "postcard", {}, size);
+    assert.ok(Math.abs(spacing.inset * 25.4 / 300 - borderMm) < 0.001);
+    assert.ok(Math.abs(spacing.footer * 25.4 / 300 - footerMm) < 0.001);
+    const preview = frameSpacing(shortMm * 2, "postcard", {}, size);
+    assert.ok(Math.abs(preview.inset / (shortMm * 2) - spacing.inset / (shortMm * 300 / 25.4)) < 0.00001);
+  }
+  for (const frameWidth of ["narrow", "standard", "wide"]) {
+    for (const frameFooterScale of [0.85, 1, 1.5]) {
+      const geometry = frameGeometry(1000, 1600, "postcard", { frameWidth, frameFooterScale });
+      assert.ok(Math.abs(geometry.width - geometry.inset * 2 - 1000) < 0.001);
+      assert.ok(Math.abs(geometry.height - geometry.top - geometry.footer - 1600) < 0.001);
+    }
+  }
+  assert.ok(frameSpacing(1000, "postcard", { frameWidth: "wide" }).inset > frameSpacing(1000, "postcard").inset);
+  assert.equal(frameSpacing(1000, "postcard", { frameFooterScale: NaN }).footer, frameSpacing(1000, "postcard").footer);
 });

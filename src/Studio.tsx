@@ -70,7 +70,7 @@ export function StudioHome(props: {
       <main className="studio-home">
         <div className="home-heading">
           <h1>给宝宝照片，留下成长印记</h1>
-          <p>时间、地点，还有那天的小故事。</p>
+          <p>自动读取照片里的拍摄时间与 GPS，<br />为成长瞬间添上日期、地点和那天的小故事。</p>
         </div>
         <section className="home-example" aria-label="水印示例">
           {url ? (
@@ -95,7 +95,7 @@ export function StudioHome(props: {
             </button>
           )}
           <p>
-            无需注册 · 照片不上传 · 免费使用
+            自动读取 EXIF · 照片不上传 · 免费使用
           </p>
         </div>
         <section className="home-templates">
@@ -106,6 +106,11 @@ export function StudioHome(props: {
             template={props.template}
             onChoose={props.onChoose}
           />
+        </section>
+        <section className="home-exif" aria-labelledby="home-exif-title">
+          <h2 id="home-exif-title">照片里的时间，不用重新填写</h2>
+          <p>自动读取原始照片中的 EXIF 拍摄时间与 GPS 坐标，支持本地近似匹配省市。<br />时间、地点和纪念文字，都可以自由修改。</p>
+          <p className="exif-caveat">部分截图或转发照片不含 EXIF，可手动补填；离线地点仅供参考。</p>
         </section>
         <footer className="home-footer">
           <span><img className="brand-icon" src="/icons/brand.png?v=girl-v2" alt="" width={32} height={32} />时光印记</span>

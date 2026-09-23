@@ -34,6 +34,8 @@ export interface LocationSettings {
 }
 
 export interface WatermarkStyle {
+  frameWidth?: "narrow" | "standard" | "wide";
+  frameFooterScale?: number;
   postcardStamp?: boolean;
   postcardUnderline?: boolean;
   layout?: "overlay" | "paper";

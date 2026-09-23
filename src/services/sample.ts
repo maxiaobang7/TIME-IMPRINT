@@ -32,7 +32,7 @@ export function loadSamplePhoto(id = "travel-memory") {
         editedDateText: "2026.09.22",
         editedLocationText: "杭州 · 西湖",
         editedCoordinateText: "",
-        eventNote: "",
+        eventNote: id === "classic-date" ? "宝宝两岁生日合影" : "",
       });
     };
     image.onerror = () => {

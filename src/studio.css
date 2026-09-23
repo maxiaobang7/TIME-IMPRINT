@@ -1127,7 +1127,16 @@ legend {
 .studio-home { max-width: none; padding: 26px 0 0; margin: 0; background: #f4f8f6; }
 .home-heading h1 { font-size: 28px; color: #242c36; }
 .home-heading { margin-bottom: 0; }
-.home-heading p { margin-top: 8px; font-size: 16px; color: #707880; }
+.home-heading p { margin-top: 8px; font-size: 16px; color: #707880; line-height: 1.7; }
+.home-exif { padding: 32px 20px; text-align: center; background: #f3f7f5; border-top: 1px solid #e7ebed; }
+.home-exif h2 { margin: 0 0 12px; font-size: 22px; color: #304437; }
+.home-exif p { max-width: 680px; margin: 0 auto; font-size: 14px; line-height: 1.9; color: #52655a; }
+.home-exif .exif-caveat { margin-top: 12px; font-size: 12px; color: #727e77; }
+@media (max-width: 600px) {
+  .home-exif { padding: 26px 22px; }
+  .home-exif h2 { font-size: 19px; }
+  .home-exif p { font-size: 13px; }
+}
 .home-example { --example-height: 360px; width: 580px; max-width: calc(100% - 40px); margin: 16px auto 0; background: transparent; box-shadow: none; border: 0; overflow: visible; }
 .home-example img { display: block; width: 100%; height: var(--example-height); object-fit: contain; border-radius: 5px; }
 .home-example > img { box-shadow: none; }

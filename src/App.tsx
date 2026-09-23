@@ -1062,6 +1062,24 @@ function StyleEditor(props: {
         ))}
       </div>
 
+      {props.style.layout === "paper" && <>
+        <div className="settings-field" role="group" aria-label="边框宽度">
+          <span>边框宽度</span>
+          <div className="segmented">
+            {(["narrow", "standard", "wide"] as const).map((width, index) => <button
+              key={width}
+              className={(props.style.frameWidth ?? "standard") === width ? "active" : ""}
+              aria-pressed={(props.style.frameWidth ?? "standard") === width}
+              onClick={() => props.onStyleChange({ ...props.style, frameWidth: width })}
+            >{["窄边", "标准", "宽边"][index]}</button>)}
+          </div>
+        </div>
+        <label className="slider-row">
+          <span>底部留白</span><b>{Math.round((props.style.frameFooterScale ?? 1) * 100)}%</b>
+          <input type="range" min="0.85" max="1.5" step="0.05" value={props.style.frameFooterScale ?? 1}
+            onChange={event => props.onStyleChange({ ...props.style, frameFooterScale: Number(event.target.value) })} />
+        </label>
+      </>}
       <ControlSlider
         label="字体大小"
         value={props.style.fontSizeRatio}
