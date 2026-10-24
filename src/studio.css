@@ -840,6 +840,26 @@ legend {
   place-items: center;
   z-index: 100;
 }
+.photo-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+  background: #f4f8f6e8;
+  border: 4px dashed #38755f;
+}
+.photo-drop-message {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: #304437;
+  text-align: center;
+}
+.photo-drop-message strong { font-size: 24px; }
+.photo-drop-message span { font-size: 14px; color: #65776d; }
 .loading-card {
   display: flex;
   gap: 12px;

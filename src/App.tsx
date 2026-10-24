@@ -2,6 +2,7 @@
 import { Icons } from "./icons";
 import { useMemo } from "react";
 import { babyAgeText, parseCaptureDate } from "./utils/date";
+import type { DragEvent } from "react";
 import { StudioHome, StudioTemplateLibrary } from "./Studio";
 import { SavePhotoDialog } from "./SavePhotoDialog";
 import { isAppleMobile } from "./services/export";
@@ -104,6 +105,7 @@ export function App() {
   const [batchCancelable, setBatchCancelable] = useState(false);
   const [importFailures, setImportFailures] = useState<string[]>([]);
   const batchController = useRef<AbortController | undefined>(undefined);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const [toast, setToast] = useState("");
   const [albumPhoto, setAlbumPhoto] = useState<{ blob: Blob; filename: string }>();
   const [appleMobile] = useState(() => isAppleMobile());
@@ -171,19 +173,28 @@ export function App() {
 
   const canExport = renderedPhotos.length > 0;
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | File[] | null) {
     if (!files?.length || batchController.current) return;
+    const images = Array.from(files).filter((file) =>
+      (file.type.startsWith("image/") && file.type !== "image/svg+xml") ||
+      /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(file.name),
+    );
+    if (!images.length) {
+      showToast("请选择照片文件");
+      return;
+    }
     const controller = new AbortController();
     batchController.current = controller;
     setBatchCancelable(true);
     setImportFailures([]);
     const loaded: PhotoItem[] = [];
-    const failed: string[] = [];
+    const failed: string[] = Array.from(files)
+      .filter((file) => !images.includes(file))
+      .map((file) => `${file.name}：不是支持的照片文件`);
     try {
-      const incoming = Array.from(files);
-      for (const [index, file] of incoming.entries()) {
+      for (const [index, file] of images.entries()) {
         if (controller.signal.aborted) break;
-        setBusyText(`正在导入 ${index + 1}/${incoming.length}：${file.name}`);
+        setBusyText(`正在导入 ${index + 1}/${images.length}：${file.name}`);
         await new Promise(resolve => window.setTimeout(resolve, 0));
         let photo: PhotoItem | undefined;
         try {
@@ -217,6 +228,35 @@ export function App() {
       setBusyText("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  function hasDraggedFiles(event: DragEvent) {
+    return Array.from(event.dataTransfer.types).includes("Files");
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    if (!batchController.current) setDraggingFiles(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = batchController.current ? "none" : "copy";
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setDraggingFiles(false);
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    setDraggingFiles(false);
+    void handleFiles(event.dataTransfer.files);
   }
 
   async function renderSelected(version: number) {
@@ -533,7 +573,13 @@ export function App() {
         babyProfile,
       }}
     >
-      <div className={"studio-app " + (editing ? "is-editing" : "")}>
+      <div
+        className={"studio-app " + (editing ? "is-editing" : "")}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <input
           ref={fileInputRef}
           className="visually-hidden"
@@ -839,6 +885,15 @@ export function App() {
           </div>
         )}
         {albumPhoto && <SavePhotoDialog photo={albumPhoto} onClose={() => setAlbumPhoto(undefined)} />}
+        {draggingFiles && !busyText && (
+          <div className="photo-drop-overlay" role="status">
+            <div className="photo-drop-message">
+              <Icons.ImagePlus size={36} aria-hidden="true" />
+              <strong>松开以添加照片</strong>
+              <span>支持一次拖入多张图片</span>
+            </div>
+          </div>
+        )}
         {busyText && (
           <div className="loading-layer" role="status">
             <div className="loading-card">

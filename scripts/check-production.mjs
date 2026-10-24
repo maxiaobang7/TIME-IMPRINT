@@ -77,6 +77,31 @@ try {
   await page.getByRole("tab", { name: "文字", exact: true }).click();
   assert.equal(await page.getByPlaceholder("未读取到拍摄时间，可手动填写").inputValue(), "");
   assert.deepEqual(errors, []);
+  const dragPage = await browser.newPage();
+  dragPage.on("pageerror", error => errors.push(error.message));
+  await dragPage.goto(origin);
+  await dragPage.locator(".studio-app").evaluate(element => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(["notes"], "notes.txt", { type: "text/plain" }));
+    element.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    element.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    element.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  });
+  await dragPage.getByText("请选择照片文件").waitFor();
+  const landscape = Array.from(await readFile("Tests/fixtures/landscape.jpg"));
+  const portrait = Array.from(await readFile("Tests/fixtures/portrait.jpg"));
+  await dragPage.locator(".studio-app").evaluate((element, files) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(files.landscape)], "landscape.jpg", { type: "image/jpeg" }));
+    transfer.items.add(new File([new Uint8Array(files.portrait)], "portrait.jpg", { type: "image/jpeg" }));
+    element.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    element.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    element.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  }, { landscape, portrait });
+  await dragPage.getByRole("button", { name: "选择照片 2" }).waitFor();
+  await dragPage.locator('input[type="file"]').setInputFiles("Tests/fixtures/portrait.jpg");
+  await dragPage.getByRole("button", { name: "选择照片 3" }).waitFor();
+  await dragPage.close();
   const mobile = await browser.newContext({ ...devices["iPhone 13"], serviceWorkers: "block" });
   const phone = await mobile.newPage();
   phone.on("pageerror", error => errors.push(error.message));
