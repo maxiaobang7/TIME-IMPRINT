@@ -52,3 +52,46 @@ export function babyAgeText(birthday: string, at: Date): string {
   const diff = Math.round((calendarDay(at) - calendarDay(birth)) / 86_400_000) + 1;
   return `第 ${Math.max(diff, 1)} 天`;
 }
+
+const englishMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export const dateFormats = [
+  { id: "full", label: "2026年9月22日 16:30" },
+  { id: "date", label: "2026年9月22日" },
+  { id: "dot", label: "2026.09.22" },
+  { id: "dash", label: "2026-09-22 16:30" },
+  { id: "english", label: "Sep 22, 2026" },
+] as const;
+
+export function formatDateAs(date: Date | undefined, format: string): string {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  switch (format) {
+    case "date": return `${y}年${m}月${d}日`;
+    case "dot": return `${y}.${pad(m)}.${pad(d)}`;
+    case "dash": return `${y}-${pad(m)}-${pad(d)} ${time}`;
+    case "english": return `${englishMonths[m - 1]} ${d}, ${y}`;
+    default: return formatCaptureDate(date);
+  }
+}
+
+/** Reads any date the user typed or picked, including English month names. */
+export function parseAnyDate(text: string): Date | undefined {
+  const parsed = parseCaptureDate(text);
+  if (parsed) return parsed;
+  const english = text.trim().match(/^([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})$/);
+  if (!english) return undefined;
+  const month = englishMonths.findIndex((name) => name.toLowerCase() === english[1].toLowerCase());
+  if (month < 0) return undefined;
+  const date = new Date(Number(english[3]), month, Number(english[2]));
+  return date.getMonth() === month ? date : undefined;
+}
+
+/** "'26 9 22" style used by film cameras' date backs. */
+export function filmDateText(date: Date): string {
+  return `'${String(date.getFullYear()).slice(-2)} ${date.getMonth() + 1} ${String(date.getDate()).padStart(2, "0")}`;
+}

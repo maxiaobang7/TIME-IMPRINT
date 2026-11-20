@@ -4,14 +4,15 @@ import type {
   RenderOptions,
   WatermarkStyle,
 } from "../types";
-import { babyAgeText, parseCaptureDate } from "../utils/date";
+import { babyAgeText, filmDateText, parseAnyDate } from "../utils/date";
+import { fontStack, needsHandFont, titleWeight } from "./fonts";
 import { printLayout } from "./print-layout";
 import { withPrintDensity } from "./image-density";
 import { drawFrame, frameGeometry } from "./watermark-frame";
 import { loadPostcardFont } from "./postcard";
 
 export async function renderWatermark(options: RenderOptions): Promise<Blob> {
-  if (options.style.frame === "postcard") await loadPostcardFont();
+  if (needsHandFont(options.style)) await loadPostcardFont();
   const image = await loadImage(options.photo.previewUrl);
   const canvas = document.createElement("canvas");
   try {
@@ -73,7 +74,7 @@ export async function renderWatermark(options: RenderOptions): Promise<Blob> {
         layout.drawWidth,
         layout.drawHeight,
       );
-      drawWatermark(ctx, canvas, lines, options.style, layout.margin);
+      drawOverlay(ctx, canvas, lines, options, layout.margin);
     }
 
     const mime = options.outputFormat === "png" ? "image/png" : "image/jpeg";
@@ -105,7 +106,7 @@ export function buildWatermarkLines(
   const lines: Array<{ icon: string; text: string }> = [];
 
   if (style.showBabyAge) {
-    const capturedAt = parseCaptureDate(photo.editedDateText);
+    const capturedAt = parseAnyDate(photo.editedDateText);
     const age = capturedAt
       ? babyAgeText(babyProfile.birthday, capturedAt)
       : "";
@@ -135,14 +136,39 @@ export function buildWatermarkLines(
   return lines;
 }
 
+type Line = { icon: string; text: string };
+
+function drawOverlay(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  lines: Line[],
+  options: RenderOptions,
+  printMargin: number,
+) {
+  const { style, photo } = options;
+  const date = parseAnyDate(photo.editedDateText);
+  const hasDate = style.showTime && !!photo.editedDateText;
+  if (style.overlay === "filmDate" && hasDate) {
+    drawFilmDate(ctx, canvas, date ? filmDateText(date) : photo.editedDateText, style, printMargin);
+    return;
+  }
+  if (style.overlay === "bigDate" && hasDate && date) {
+    drawBigDate(ctx, canvas, date, lines.filter((line) => line.icon !== "clock"), style, printMargin);
+    return;
+  }
+  drawWatermark(ctx, canvas, lines, style, printMargin);
+}
+
 function drawWatermark(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  lines: Array<{ icon: string; text: string }>,
+  lines: Line[],
   style: WatermarkStyle,
   printMargin: number,
 ) {
   if (!lines.length) return;
+  const family = fontStack(style.fontFamily);
+  const weight = titleWeight(style.fontFamily);
 
   const minSide = Math.min(canvas.width, canvas.height);
   let fontSize = Math.max(1, minSide * style.fontSizeRatio);
@@ -150,7 +176,7 @@ function drawWatermark(
   const availableHeight = Math.max(1, canvas.height - printMargin * 2);
   // Fit the entire label before positioning; never squeeze individual glyphs.
   ctx.save();
-  ctx.font = `600 ${fontSize}px sans-serif`;
+  ctx.font = `${weight} ${fontSize}px ${family}`;
   const textWidth = Math.max(
     ...lines.map((line) => ctx.measureText(line.text).width),
   );
@@ -166,7 +192,7 @@ function drawWatermark(
   const usableWidth = Math.max(1, canvas.width - printMargin * 2);
   const maxWidth = usableWidth;
 
-  ctx.font = `600 ${fontSize}px sans-serif`;
+  ctx.font = `${weight} ${fontSize}px ${family}`;
   ctx.textBaseline = "middle";
 
   const textWidths = lines.map(
@@ -183,7 +209,10 @@ function drawWatermark(
     printMargin,
   );
 
-  if (style.showBackground) {
+  const gradient = style.showBackground && style.backdrop === "gradient";
+  if (gradient) {
+    drawEdgeGradient(ctx, canvas, style.position, origin.y, boxHeight, style.backgroundOpacity);
+  } else if (style.showBackground) {
     ctx.fillStyle = `rgba(0, 0, 0, ${style.backgroundOpacity})`;
     roundRect(ctx, origin.x, origin.y, boxWidth, boxHeight, fontSize * 0.62);
     ctx.fill();
@@ -191,7 +220,7 @@ function drawWatermark(
 
   ctx.globalAlpha = style.opacity;
   ctx.fillStyle = style.textColor;
-  if (!style.showBackground) {
+  if (!style.showBackground || gradient) {
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
     ctx.shadowBlur = fontSize * 0.12;
     ctx.shadowOffsetY = fontSize * 0.04;
@@ -208,6 +237,133 @@ function drawWatermark(
     );
   });
 
+  ctx.restore();
+}
+
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const chars = Array.from(text);
+  while (chars.length > 1 && ctx.measureText(chars.join("") + "…").width > maxWidth) chars.pop();
+  return chars.join("") + "…";
+}
+
+/** Soft scrim along the photo edge: keeps text legible without a hard plate. */
+function drawEdgeGradient(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  position: string,
+  boxY: number,
+  boxHeight: number,
+  strength: number,
+) {
+  const top = position.startsWith("top");
+  const reach = Math.min(canvas.height, (top ? boxY + boxHeight : canvas.height - boxY) + boxHeight * 1.2);
+  const y0 = top ? 0 : canvas.height;
+  const y1 = top ? reach : canvas.height - reach;
+  const alpha = Math.min(0.85, Math.max(0.15, strength * 1.7));
+  const gradient = ctx.createLinearGradient(0, y0, 0, y1);
+  gradient.addColorStop(0, `rgba(0, 0, 0, ${alpha})`);
+  gradient.addColorStop(0.55, `rgba(0, 0, 0, ${alpha * 0.4})`);
+  gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, Math.min(y0, y1), canvas.width, Math.abs(y1 - y0));
+}
+
+/** Orange LED date imprint, like the date back of a 90s film camera. */
+function drawFilmDate(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  text: string,
+  style: WatermarkStyle,
+  margin: number,
+) {
+  const minSide = Math.min(canvas.width, canvas.height);
+  const family = fontStack(style.fontFamily, "mono");
+  let size = Math.max(1, minSide * style.fontSizeRatio * 1.25);
+  const available = Math.max(1, canvas.width - margin * 2);
+  ctx.save();
+  ctx.font = `700 ${size}px ${family}`;
+  size *= Math.min(1, available / Math.max(1, ctx.measureText(text).width * 1.08));
+  ctx.font = `700 ${size}px ${family}`;
+  const width = Math.min(available, ctx.measureText(text).width);
+  const origin = getBoxOrigin(style.position, canvas.width, canvas.height, width, size, margin);
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = style.textColor;
+  ctx.globalAlpha = style.opacity * 0.92;
+  // Two passes: a wide glow for the light bleed, then a crisp core.
+  ctx.shadowColor = style.textColor;
+  ctx.shadowBlur = size * 0.45;
+  ctx.fillText(text, origin.x, origin.y + size / 2, width);
+  ctx.shadowBlur = size * 0.12;
+  ctx.globalAlpha = style.opacity;
+  ctx.fillText(text, origin.x, origin.y + size / 2, width);
+  ctx.restore();
+}
+
+const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+/** Editorial layout: a large day number with month, year and a short caption. */
+function drawBigDate(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  date: Date,
+  rest: Line[],
+  style: WatermarkStyle,
+  margin: number,
+) {
+  const minSide = Math.min(canvas.width, canvas.height);
+  const available = Math.max(1, canvas.width - margin * 2);
+  const day = String(date.getDate()).padStart(2, "0");
+  const head = `${monthNames[date.getMonth()]}  ${date.getFullYear()}`;
+  const captions = rest.map((line) => line.text).slice(0, 2);
+  const serif = fontStack(style.fontFamily, "serif");
+  const sans = fontStack("sans");
+  let big = Math.max(1, minSide * style.fontSizeRatio * 3);
+  const measure = () => {
+    ctx.font = `400 ${big}px ${serif}`;
+    const dayWidth = ctx.measureText(day).width;
+    ctx.font = `600 ${big * 0.2}px ${sans}`;
+    let info = ctx.measureText(head).width;
+    ctx.font = `400 ${big * 0.19}px ${sans}`;
+    for (const text of captions) info = Math.max(info, ctx.measureText(text).width);
+    return { dayWidth, info, gap: big * 0.22 };
+  };
+  ctx.save();
+  let m = measure();
+  // Shrink for the date block itself; long captions are clipped via maxWidth instead.
+  big *= Math.min(
+    1,
+    available / Math.max(1, m.dayWidth + m.gap + Math.min(m.info, m.dayWidth * 2.2)),
+    Math.max(1, canvas.height - margin * 2) / (big * 1.05),
+  );
+  m = measure();
+  const infoWidth = Math.max(1, Math.min(m.info, available - m.dayWidth - m.gap));
+  const boxWidth = Math.min(available, m.dayWidth + m.gap + infoWidth);
+  const boxHeight = big;
+  const origin = getBoxOrigin(style.position, canvas.width, canvas.height, boxWidth, boxHeight, margin);
+  if (style.showBackground)
+    drawEdgeGradient(ctx, canvas, style.position, origin.y, boxHeight, style.backgroundOpacity);
+  ctx.globalAlpha = style.opacity;
+  ctx.fillStyle = style.textColor;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+  ctx.shadowBlur = big * 0.06;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const center = origin.y + boxHeight / 2;
+  ctx.font = `400 ${big}px ${serif}`;
+  ctx.fillText(day, origin.x, center, m.dayWidth);
+  const ruleX = origin.x + m.dayWidth + m.gap / 2;
+  ctx.fillRect(ruleX - big * 0.004, center - big * 0.3, Math.max(1, big * 0.008), big * 0.6);
+  const infoX = origin.x + m.dayWidth + m.gap;
+  const rows = [head, ...captions];
+  const rowHeight = big * 0.25;
+  rows.forEach((text, index) => {
+    const size = big * (index ? 0.19 : 0.2);
+    ctx.font = `${index ? 400 : 600} ${size}px ${sans}`;
+    ctx.globalAlpha = style.opacity * (index ? 0.88 : 1);
+    ctx.fillText(ellipsize(ctx, text, infoWidth), infoX, center + (index - (rows.length - 1) / 2) * rowHeight, infoWidth);
+  });
   ctx.restore();
 }
 
@@ -229,6 +385,11 @@ function getBoxOrigin(
       return { x: minX, y: minY };
     case "top-right":
       return { x: maxX, y: minY };
+    case "top-center":
+      return {
+        x: Math.min(maxX, Math.max(minX, (width - boxWidth) / 2)),
+        y: minY,
+      };
     case "bottom-right":
       return { x: maxX, y: maxY };
     case "bottom-center":

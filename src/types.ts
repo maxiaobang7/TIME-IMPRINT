@@ -3,7 +3,12 @@ export type WatermarkPosition =
   | "top-right"
   | "bottom-left"
   | "bottom-right"
-  | "bottom-center";
+  | "bottom-center"
+  | "top-center";
+
+export type WatermarkFont = "sans" | "serif" | "hand" | "mono";
+
+export type DateFormat = "full" | "date" | "dot" | "dash" | "english";
 
 export type TemplateCategory = "travel" | "baby";
 
@@ -39,7 +44,12 @@ export interface WatermarkStyle {
   postcardStamp?: boolean;
   postcardUnderline?: boolean;
   layout?: "overlay" | "paper";
-  frame?: "minimal" | "growth" | "gallery" | "noir" | "film" | "postcard";
+  frame?: "minimal" | "growth" | "gallery" | "noir" | "film" | "postcard" | "polaroid" | "camera";
+  /** Overlay rendering: classic label, film-camera date stamp, or large editorial date. */
+  overlay?: "label" | "filmDate" | "bigDate";
+  /** Overlay backdrop when showBackground is on: rounded plate or soft edge gradient. */
+  backdrop?: "box" | "gradient";
+  fontFamily?: WatermarkFont;
   fontSizeRatio: number;
   opacity: number;
   textColor: string;
@@ -66,6 +76,8 @@ export interface PhotoMeta {
   longitude?: number;
   cameraMake?: string;
   cameraModel?: string;
+  /** e.g. "26mm  f/1.8  1/120s  ISO100" */
+  exposure?: string;
 }
 
 export interface PhotoItem {

@@ -15,6 +15,7 @@ import {
   Map,
   MapPin,
   MoveDown,
+  MoveUp,
   MoveDownLeft,
   MoveDownRight,
   MoveUpLeft,
@@ -24,7 +25,8 @@ import {
   Settings,
   Share2,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  Copy
 } from "lucide-react";
 
 export const Icons = {
@@ -44,6 +46,7 @@ export const Icons = {
   Map,
   MapPin,
   MoveDown,
+  MoveUp,
   MoveDownLeft,
   MoveDownRight,
   MoveUpLeft,
@@ -53,5 +56,6 @@ export const Icons = {
   Settings,
   Share2,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  Copy
 };
