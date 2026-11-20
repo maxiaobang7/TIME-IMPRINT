@@ -2,6 +2,8 @@ import type { PhotoItem } from "../types";
 
 const samples = new Map<string, Promise<PhotoItem>>();
 const ids = ["travel-memory", "classic-date", "paper-memory", "growth-steps", "white-gallery", "travel-postcard"];
+// New templates reuse the six sample scenes.
+const sceneFor: Record<string, string> = { "film-date": "classic-date", polaroid: "growth-steps", "camera-bar": "travel-postcard", "big-date": "paper-memory" };
 export const sampleBaby = { name: "小满", birthday: "2024-08-01" };
 
 export function loadSamplePhoto(id = "travel-memory") {
@@ -10,7 +12,7 @@ export function loadSamplePhoto(id = "travel-memory") {
     const image = new Image();
     image.onload = () => {
       const canvas = document.createElement("canvas");
-      const index = Math.max(0, ids.indexOf(id));
+      const index = Math.max(0, ids.indexOf(sceneFor[id] ?? id));
       const width = image.naturalWidth / 3;
       const height = image.naturalHeight / 2;
       canvas.width = Math.round(width);
@@ -28,11 +30,13 @@ export function loadSamplePhoto(id = "travel-memory") {
         name: "小满的夏天",
         originalUrl: url,
         previewUrl: url,
-        meta: { capturedAt: new Date(2026, 8, 22, 16, 30) },
+        meta: id === "camera-bar"
+          ? { capturedAt: new Date(2026, 8, 22, 16, 30), cameraMake: "Apple", cameraModel: "iPhone 16 Pro", exposure: "24mm  f/1.8  1/640s  ISO80" }
+          : { capturedAt: new Date(2026, 8, 22, 16, 30) },
         editedDateText: "2026.09.22",
         editedLocationText: "杭州 · 西湖",
         editedCoordinateText: "",
-        eventNote: id === "classic-date" ? "宝宝两岁生日合影" : "",
+        eventNote: id === "classic-date" ? "宝宝两岁生日合影" : id === "polaroid" ? "第一次自己走路啦" : id === "big-date" ? "一家三口的西湖午后" : "",
       });
     };
     image.onerror = () => {

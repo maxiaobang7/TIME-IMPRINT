@@ -456,10 +456,8 @@ for (const size of ["3", "5", "6"]) {
             outputFormat: "png",
             printSettings: { size, fit: "contain", marginMm: 10 },
           });
-          assert.equal(
-            labels.length,
-            template.style.frame === "postcard" ? 5 : ["film", "gallery"].includes(template.style.frame) ? 3 : 2,
-          );
+          const expected = { postcard: 5, film: 3, gallery: 3, camera: 3 }[template.style.frame] ?? 2;
+          assert.equal(labels.length, expected, template.id);
           const margin = (10 / 25.4) * 300;
           for (const label of labels) {
             const left =
@@ -484,10 +482,13 @@ test("template order and default match the requested catalogue", () => {
     defaultTemplates.slice(0, 4).map((item) => item.name),
     ["轻盈角标", "经典日期", "时光留白", "成长日记"],
   );
-  assert.equal(defaultTemplates.length, 6);
+  assert.deepEqual(
+    defaultTemplates.slice(4).map((item) => item.name),
+    ["纯白画廊", "旅行明信片", "胶片日期", "拍立得", "相机参数", "杂志大字"],
+  );
   assert.ok(defaultTemplates.every(item => !["noir", "film"].includes(item.style.frame)));
   assert.equal(defaultTemplates[0].style.layout, "overlay");
-  assert.equal(new Set(defaultTemplates.map((item) => item.id)).size, 6);
+  assert.equal(new Set(defaultTemplates.map((item) => item.id)).size, defaultTemplates.length);
 });
 
 test("free-size frames add borders without changing the source image ratio", async () => {
@@ -525,4 +526,70 @@ test("frame controls preserve image geometry and physical paper defaults", async
   }
   assert.ok(frameSpacing(1000, "postcard", { frameWidth: "wide" }).inset > frameSpacing(1000, "postcard").inset);
   assert.equal(frameSpacing(1000, "postcard", { frameFooterScale: NaN }).footer, frameSpacing(1000, "postcard").footer);
+});
+
+test("overlay styles keep every label inside the print-safe area", async () => {
+  for (const id of ["film-date", "big-date"]) {
+    for (const position of ["top-left", "top-center", "bottom-right", "bottom-left"]) {
+      let font = "";
+      const labels = [];
+      const context = new Proxy({
+        measureText: (text) => ({ width: Array.from(text).length * Number(font.match(/[\d.]+(?=px)/)?.[0] ?? 12) }),
+        fillText: (text, x, y, maxWidth) => labels.push({ text, x, y, maxWidth, size: Number(font.match(/[\d.]+(?=px)/)?.[0]) }),
+        createLinearGradient: () => ({ addColorStop() {} }),
+      }, {
+        get: (target, key) => key === "font" ? font : (target[key] ?? (() => {})),
+        set: (target, key, value) => { if (key === "font") font = value; else target[key] = value; return true; },
+      });
+      const canvas = { width: 0, height: 0, getContext: () => context, toBlob: (callback, type) => { canvas.outputWidth = canvas.width; canvas.outputHeight = canvas.height; callback(new Blob(["x"], { type })); } };
+      globalThis.document = { createElement: () => canvas };
+      globalThis.Image = class { naturalWidth = 4000; naturalHeight = 3000; set src(_) { queueMicrotask(() => this.onload()); } };
+      const style = { ...defaultTemplates.find((item) => item.id === id).style, position, fontSizeRatio: 0.07 };
+      await renderWatermark({
+        photo: { previewUrl: "x", editedDateText: "2026年9月21日 12:00", editedLocationText: "很长的地点".repeat(20), editedCoordinateText: "", eventNote: "生日", meta: {} },
+        style, babyProfile: { name: "", birthday: "" }, outputFormat: "png",
+        printSettings: { size: "5", fit: "cover", marginMm: 5 },
+      });
+      const margin = (5 / 25.4) * 300;
+      assert.ok(labels.length >= 1, id);
+      for (const label of labels) {
+        assert.ok(label.x >= margin - 0.01, `${id} ${position} left`);
+        assert.ok(label.x + label.maxWidth <= canvas.outputWidth - margin + 0.01, `${id} ${position} right`);
+        assert.ok(label.y - label.size / 2 >= margin - 0.01, `${id} ${position} top`);
+        assert.ok(label.y + label.size / 2 <= canvas.outputHeight - margin + 0.01, `${id} ${position} bottom`);
+      }
+    }
+  }
+});
+
+test("date formats and film date text", async () => {
+  const { formatDateAs, parseAnyDate, filmDateText } = await source("src/utils/date.ts");
+  const date = new Date(2026, 8, 2, 7, 5);
+  assert.equal(formatDateAs(date, "dot"), "2026.09.02");
+  assert.equal(formatDateAs(date, "dash"), "2026-09-02 07:05");
+  assert.equal(formatDateAs(date, "english"), "Sep 2, 2026");
+  assert.equal(formatDateAs(date, "date"), "2026年9月2日");
+  assert.equal(parseAnyDate("Sep 2, 2026").getDate(), 2);
+  assert.equal(parseAnyDate("Feb 30, 2026"), undefined);
+  assert.equal(filmDateText(date), "'26 9 02");
+});
+
+test("camera names drop redundant brands", async () => {
+  const { cameraName } = await source("src/services/watermark-frame.ts");
+  assert.equal(cameraName({ cameraMake: "Apple", cameraModel: "iPhone 16 Pro" }), "iPhone 16 Pro");
+  assert.equal(cameraName({ cameraMake: "Canon", cameraModel: "Canon EOS R6" }), "Canon EOS R6");
+  assert.equal(cameraName({ cameraMake: "SONY", cameraModel: "ILCE-7M4" }), "SONY ILCE-7M4");
+  assert.equal(cameraName({}), "");
+});
+
+test("baby age works with every offered date format", async () => {
+  const { buildWatermarkLines } = await source("src/services/watermark.ts");
+  const { dateFormats, formatDateAs } = await source("src/utils/date.ts");
+  const style = { ...defaultTemplates[0].style, showBabyAge: true };
+  const at = new Date(2026, 8, 22, 16, 30);
+  for (const format of dateFormats) {
+    const photo = { editedDateText: formatDateAs(at, format.id), editedLocationText: "", editedCoordinateText: "", eventNote: "", meta: {} };
+    const lines = buildWatermarkLines(photo, style, { name: "小满", birthday: "2024-08-01" });
+    assert.equal(lines[0].text, "小满 · 2岁1个月", format.id);
+  }
 });

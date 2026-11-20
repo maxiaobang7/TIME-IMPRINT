@@ -1,7 +1,8 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { Icons } from "./icons";
 import { useMemo } from "react";
-import { babyAgeText, parseCaptureDate } from "./utils/date";
+import { babyAgeText, dateFormats, formatDateAs, parseAnyDate } from "./utils/date";
+import { fontOptions } from "./services/fonts";
 import type { DragEvent } from "react";
 import { StudioHome, StudioTemplateLibrary } from "./Studio";
 import { SavePhotoDialog } from "./SavePhotoDialog";
@@ -55,10 +56,11 @@ const positions: Array<{
   icon: keyof typeof Icons;
 }> = [
   { id: "top-left", label: "左上", icon: "MoveUpLeft" },
+  { id: "top-center", label: "顶部居中", icon: "MoveUp" },
   { id: "top-right", label: "右上", icon: "MoveUpRight" },
   { id: "bottom-left", label: "左下", icon: "MoveDownLeft" },
-  { id: "bottom-right", label: "右下", icon: "MoveDownRight" },
   { id: "bottom-center", label: "底部居中", icon: "MoveDown" },
+  { id: "bottom-right", label: "右下", icon: "MoveDownRight" },
 ];
 
 const colorOptions = [
@@ -70,6 +72,7 @@ const colorOptions = [
   "#f6b15d",
   "#9ab972",
   "#94cde0",
+  "#ff9a3d",
 ];
 
 const locationFieldOptions: Array<{ id: LocationField; label: string }> = [
@@ -141,6 +144,24 @@ export function App() {
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);
   }, []);
+  useEffect(() => {
+    // Arrow keys step through the filmstrip while no field has focus.
+    const onKey = (event: KeyboardEvent) => {
+      if (!photos.length || mobileScreen !== "editor" || tab !== "home") return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const target = event.target as Element | null;
+      if (target?.matches?.("input, textarea, select, [contenteditable]")) return;
+      if (document.querySelector("dialog[open]")) return;
+      const index = photos.findIndex((photo) => photo.id === selectedPhoto?.id);
+      const next = photos[index + (event.key === "ArrowRight" ? 1 : -1)];
+      if (next) {
+        event.preventDefault();
+        setSelectedId(next.id);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photos, selectedPhoto?.id, mobileScreen, tab]);
   useEffect(() => {
     if (!desktop) window.scrollTo({ top: 0, behavior: "instant" });
   }, [mobileScreen, tab, desktop]);
@@ -362,6 +383,38 @@ export function App() {
         photo.id === selectedPhoto.id ? { ...photo, ...patch } : photo,
       ),
     );
+  }
+
+  function applyDateFormat(format: string) {
+    const updates = new Map<string, string>();
+    for (const photo of photos) {
+      const text = formatDateAs(photoDateOf(photo), format);
+      if (text) updates.set(photo.id, text);
+    }
+    setPhotos((current) =>
+      current.map((photo) =>
+        updates.has(photo.id) ? { ...photo, editedDateText: updates.get(photo.id)! } : photo,
+      ),
+    );
+    const skipped = photos.length - updates.size;
+    showToast(
+      photos.length === 1
+        ? "已更新日期格式"
+        : `已更新 ${updates.size} 张照片的日期格式${skipped ? `，${skipped} 张自定义文字未改动` : ""}`,
+    );
+  }
+
+  function syncToAll(field: "editedLocationText" | "eventNote") {
+    if (!selectedPhoto) return;
+    const value = selectedPhoto[field];
+    setPhotos((current) =>
+      current.map((photo) => ({
+        ...photo,
+        [field]: value,
+        ...(field === "editedLocationText" ? { locationSource: "manual" as const } : {}),
+      })),
+    );
+    showToast(`已同步到全部 ${photos.length} 张照片`);
   }
 
   async function resolvePhotoLocations(items: PhotoItem[]) {
@@ -752,7 +805,7 @@ export function App() {
                         onChooseTemplate={chooseTemplate}
                         onStyleChange={setStyle}
                       />
-                      {style.frame !== "postcard" && <PositionEditor style={style} onStyleChange={setStyle} />}
+                      {style.frame !== "postcard" && style.frame !== "camera" && <PositionEditor style={style} onStyleChange={setStyle} />}
                     </details>
                     <button
                       className="reset-template-style"
@@ -772,8 +825,11 @@ export function App() {
                     selectedPhoto={selectedPhoto}
                     babyProfile={babyProfile}
                     style={style}
+                    photoCount={photos.length}
                     onPhotoChange={updateSelectedPhoto}
                     onStyleChange={setStyle}
+                    onDateFormat={applyDateFormat}
+                    onSync={syncToAll}
                   />
                 )}
                 {editorSection === "print" && (
@@ -1185,6 +1241,24 @@ function StyleEditor(props: {
             onChange={event => props.onStyleChange({ ...props.style, frameFooterScale: Number(event.target.value) })} />
         </label>
       </>}
+      {props.style.frame !== "postcard" && <div className="settings-field" role="group" aria-label="字体">
+        <span>字体</span>
+        <div className="segmented">
+          {fontOptions.map((font) => {
+            const current = props.style.fontFamily ?? (props.style.overlay === "filmDate" ? "mono" : props.style.overlay === "bigDate" ? "serif" : "sans");
+            return (
+              <button
+                key={font.id}
+                className={current === font.id ? "active" : ""}
+                aria-pressed={current === font.id}
+                onClick={() => props.onStyleChange({ ...props.style, fontFamily: font.id })}
+              >
+                {font.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>}
       <ControlSlider
         label="字体大小"
         value={props.style.fontSizeRatio}
@@ -1219,26 +1293,59 @@ function StyleEditor(props: {
             }
           />
         ))}
+        <label className="color-custom" title="自定义颜色">
+          <span className="visually-hidden">自定义颜色</span>
+          <input
+            type="color"
+            value={/^#[0-9a-f]{6}$/i.test(props.style.textColor) ? props.style.textColor : "#ffffff"}
+            onChange={(event) => props.onStyleChange({ ...props.style, textColor: event.target.value })}
+          />
+        </label>
       </div>
 
       {props.style.frame === "postcard" && <div className="postcard-decorations">
         <label className="toggle-row"><span>海蓝邮戳</span><input type="checkbox" checked={props.style.postcardStamp !== false} onChange={event => props.onStyleChange({ ...props.style, postcardStamp: event.target.checked })} /></label>
         <label className="toggle-row"><span>手写下划线</span><input type="checkbox" checked={props.style.postcardUnderline !== false} onChange={event => props.onStyleChange({ ...props.style, postcardUnderline: event.target.checked })} /></label>
       </div>}
-      {props.style.layout !== "paper" && (
-        <label className="toggle-row">
-          <span>深色底板</span>
-          <input
-            type="checkbox"
-            checked={props.style.showBackground}
-            onChange={(event) =>
-              props.onStyleChange({
-                ...props.style,
-                showBackground: event.target.checked,
-              })
-            }
-          />
-        </label>
+      {props.style.layout !== "paper" && props.style.overlay !== "filmDate" && (
+        <div className="settings-field" role="group" aria-label="文字衬底">
+          <span>文字衬底</span>
+          <div className="segmented">
+            {([
+              ["none", "仅阴影"],
+              ["box", "圆角底板"],
+              ["gradient", "渐变压暗"],
+            ] as const).filter(([id]) => id !== "box" || props.style.overlay !== "bigDate").map(([id, label]) => {
+              const current = !props.style.showBackground ? "none" : props.style.backdrop ?? "box";
+              return (
+                <button
+                  key={id}
+                  className={current === id ? "active" : ""}
+                  aria-pressed={current === id}
+                  onClick={() =>
+                    props.onStyleChange({
+                      ...props.style,
+                      showBackground: id !== "none",
+                      backdrop: id === "none" ? props.style.backdrop : id,
+                    })
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {props.style.layout !== "paper" && props.style.showBackground && props.style.overlay !== "filmDate" && (
+        <ControlSlider
+          label="衬底浓度"
+          value={props.style.backgroundOpacity}
+          min={0.1}
+          max={0.7}
+          step={0.01}
+          onChange={(backgroundOpacity) => props.onStyleChange({ ...props.style, backgroundOpacity })}
+        />
       )}
     </div>
   );
@@ -1248,10 +1355,21 @@ function TextEditor(props: {
   selectedPhoto?: PhotoItem;
   babyProfile: BabyProfile;
   style: WatermarkStyle;
+  photoCount: number;
   onPhotoChange: (patch: Partial<PhotoItem>) => void;
   onStyleChange: (style: WatermarkStyle) => void;
+  onDateFormat: (format: string) => void;
+  onSync: (field: "editedLocationText" | "eventNote") => void;
 }) {
-  const capturedAt = parseCaptureDate(props.selectedPhoto?.editedDateText ?? "");
+  const photoDate = props.selectedPhoto && photoDateOf(props.selectedPhoto);
+  const sync = (field: "editedLocationText" | "eventNote") =>
+    props.photoCount > 1 && (
+      <button type="button" className="sync-button" onClick={() => props.onSync(field)}>
+        <Icons.Copy size={13} />
+        同步到全部
+      </button>
+    );
+  const capturedAt = parseAnyDate(props.selectedPhoto?.editedDateText ?? "");
   const age = capturedAt ? babyAgeText(props.babyProfile.birthday, capturedAt) : "";
   return (
     <div className="control-stack">
@@ -1275,6 +1393,15 @@ function TextEditor(props: {
           }
         />
       </label>
+      {photoDate && (
+        <div className="date-formats" role="group" aria-label="日期格式">
+          {dateFormats.map((format) => (
+            <button type="button" key={format.id} title="切换全部照片的日期格式" onClick={() => props.onDateFormat(format.id)}>
+              {formatDateAs(photoDate, format.id)}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="hint-text" data-testid="capture-age-hint">
         {!capturedAt ? "填写有效日期（例如 2026-09-23 10:30）后可计算月龄；自定义文字仍会保留。"
           : !props.babyProfile.birthday ? "在设置中填写宝宝生日，即可根据这里的日期计算月龄。"
@@ -1290,7 +1417,10 @@ function TextEditor(props: {
           }
         />
       </label>
-      <LocationSource photo={props.selectedPhoto} />
+      <div className="field-meta">
+        <LocationSource photo={props.selectedPhoto} />
+        {sync("editedLocationText")}
+      </div>
       <label>
         经纬度
         <input
@@ -1310,6 +1440,7 @@ function TextEditor(props: {
           }
         />
       </label>
+      {props.photoCount > 1 && <div className="field-meta end">{sync("eventNote")}</div>}
 
       <div className="toggle-grid">
         <ToggleChip
@@ -1418,6 +1549,18 @@ function ToggleChip(props: {
       {props.checked && <Icons.CheckCircle2 />}
     </button>
   );
+}
+
+/** Date shown in the text field if it parses; EXIF only when the field is empty. */
+function photoDateOf(photo: PhotoItem) {
+  const typed = photo.editedDateText.trim();
+  if (!typed) return photo.meta.capturedAt;
+  const parsed = parseAnyDate(typed);
+  const exif = photo.meta.capturedAt;
+  // Date-only formats drop the time; restore it from EXIF when the day still matches.
+  if (parsed && exif && parsed.getHours() === 0 && parsed.getMinutes() === 0 && parsed.toDateString() === exif.toDateString())
+    return exif;
+  return parsed;
 }
 
 function outputName(photo: PhotoItem, format: "jpeg" | "png") {

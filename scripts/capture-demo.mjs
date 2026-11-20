@@ -73,13 +73,13 @@ try {
   const gallery = await context.newPage();
   await gallery.setViewportSize({ width: 1500, height: 1100 });
   await gallery.setContent(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>
-    *{box-sizing:border-box}body{margin:0;padding:44px;background:#f3f7f5;color:#263c32;font-family:"Microsoft YaHei",sans-serif}
-    h1{font-size:32px;margin:0 0 10px}p{color:#63766b;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
-    figure{margin:0}img{display:block;width:100%;height:320px;object-fit:contain;background:white}figcaption{font-size:20px;text-align:center;padding:16px}
-    </style><h1>时光印记 · 六款水印风格</h1><p>合成示例照片 · 当前水印引擎实际导出</p><main>${examples.map(item => `<figure><img src="${item.data}" alt="${item.name}"><figcaption>${item.name}</figcaption></figure>`).join("")}</main></html>`);
+    *{box-sizing:border-box}body{margin:0;padding:44px;background:#f7f2ea;color:#2a2420;font-family:"Microsoft YaHei",sans-serif}
+    h1{font-size:32px;margin:0 0 10px}p{color:#8b8076;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+    figure{margin:0}img{display:block;width:100%;height:250px;object-fit:contain;background:white}figcaption{font-size:20px;text-align:center;padding:16px}
+    </style><h1>时光印记 · ${examples.length} 款水印风格</h1><p>合成示例照片 · 当前水印引擎实际导出</p><main>${examples.map(item => `<figure><img src="${item.data}" alt="${item.name}"><figcaption>${item.name}</figcaption></figure>`).join("")}</main></html>`);
   await settle(gallery);
   await screenshot(gallery, "template-gallery");
-  console.log(`Generated ${examples.length} template exports and 6 screenshots in ${output}`);
+  console.log(`Generated ${examples.length} template exports and 7 screenshots in ${output}`);
 } finally {
   await browser?.close();
   await server.close();
@@ -87,7 +87,7 @@ try {
 
 async function readyHome(page) {
   await page.locator(".home-example img").waitFor();
-  await page.waitForFunction(() => document.querySelectorAll(".home-template-grid img").length === 6);
+  await page.waitForFunction(() => document.querySelectorAll(".home-template-grid img").length >= 6);
   await settle(page);
 }
 
