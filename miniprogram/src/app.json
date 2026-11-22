@@ -1,0 +1,20 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/editor/index",
+    "pages/collage/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f7f2ea",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "时光印记",
+    "backgroundColor": "#f7f2ea",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "requiredPrivateInfos": [
+    "chooseLocation"
+  ]
+}

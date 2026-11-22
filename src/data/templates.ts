@@ -22,32 +22,34 @@ const paper: WatermarkStyle = {
   showBackground: false,
   position: "bottom-center",
 };
-export const defaultTemplates: WatermarkTemplate[] = [
+export const allTemplates: WatermarkTemplate[] = [
   {
     id: "travel-memory",
     name: "轻盈角标",
     category: "travel",
-    description: "轻薄底板 · 右下角标",
-    style: { ...base },
+    description: "磨砂圆角 · 右下角标",
+    style: { ...base, backgroundOpacity: 0.28 },
   },
   {
     id: "classic-date",
-    name: "经典日期",
+    name: "电影字幕",
     category: "travel",
-    description: "纯净日期 · 无底板",
+    description: "居中字幕 · 一句话配日期",
     style: {
       ...base,
-      showLocation: false,
-      showBackground: false,
-      fontSizeRatio: 0.025,
+      overlay: "subtitle",
+      backdrop: "gradient",
+      backgroundOpacity: 0.4,
+      position: "bottom-center",
+      fontSizeRatio: 0.048,
     },
   },
   {
     id: "paper-memory",
     name: "时光留白",
     category: "travel",
-    description: "窄白边 · 双层题签",
-    style: { ...paper },
+    description: "窄白边 · 宋体日期题签",
+    style: { ...paper, fontFamily: "serif", fontSizeRatio: 0.034 },
   },
   {
     id: "growth-steps",
@@ -65,8 +67,8 @@ export const defaultTemplates: WatermarkTemplate[] = [
     id: "white-gallery",
     name: "纯白画廊",
     category: "travel",
-    description: "上下留白 · 居中展签",
-    style: { ...paper, frame: "gallery" },
+    description: "宽白卡纸 · 右下角展签",
+    style: { ...paper, frame: "gallery", position: "bottom-right", fontSizeRatio: 0.034 },
   },
   {
     id: "travel-postcard",
@@ -116,6 +118,7 @@ export const defaultTemplates: WatermarkTemplate[] = [
     name: "相机参数",
     category: "travel",
     description: "机型参数 · 日期地点信息条",
+    platform: "web",
     style: {
       ...paper,
       frame: "camera",
@@ -139,3 +142,22 @@ export const defaultTemplates: WatermarkTemplate[] = [
     },
   },
 ];
+
+/** Same info-bar layout as 相机参数, led by the event and baby age instead of camera EXIF. */
+allTemplates.splice(allTemplates.findIndex((item) => item.id === "camera-bar") + 1, 0, {
+  id: "info-bar",
+  name: "生活信息条",
+  category: "baby",
+  description: "白色信息条 · 事件与月龄",
+  platform: "mp",
+  style: {
+    ...paper,
+    frame: "camera",
+    textColor: "#1f2120",
+    fontSizeRatio: 0.036,
+    showBabyAge: true,
+  },
+});
+
+/** Templates on the website. */
+export const defaultTemplates = allTemplates.filter((item) => item.platform !== "mp");

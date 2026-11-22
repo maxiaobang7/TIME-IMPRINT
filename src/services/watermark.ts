@@ -2,8 +2,10 @@ import type {
   BabyProfile,
   PhotoItem,
   RenderOptions,
+  RenderPhoto,
   WatermarkStyle,
 } from "../types";
+import type { Drawable, Surface } from "./surface";
 import { babyAgeText, filmDateText, parseAnyDate } from "../utils/date";
 import { fontStack, needsHandFont, titleWeight } from "./fonts";
 import { printLayout } from "./print-layout";
@@ -11,71 +13,17 @@ import { withPrintDensity } from "./image-density";
 import { drawFrame, frameGeometry } from "./watermark-frame";
 import { loadPostcardFont } from "./postcard";
 
-export async function renderWatermark(options: RenderOptions): Promise<Blob> {
+export async function renderWatermark(options: RenderOptions & { photo: PhotoItem }): Promise<Blob> {
   if (needsHandFont(options.style)) await loadPostcardFont();
   const image = await loadImage(options.photo.previewUrl);
   const canvas = document.createElement("canvas");
   try {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("当前浏览器无法创建 Canvas。");
-
-    const layout = printLayout(
-      image.naturalWidth,
-      image.naturalHeight,
-      options.printSettings,
-    );
-    if (
-      options.style.layout === "paper" &&
-      (!options.printSettings || options.printSettings.size === "original")
-    ) {
-      const geometry = frameGeometry(
-        layout.width,
-        layout.height,
-        options.style.frame,
-        options.style,
-      );
-      const scale = Math.min(1, 3200 / Math.max(geometry.width, geometry.height));
-      layout.width = geometry.width * scale;
-      layout.height = geometry.height * scale;
-      layout.margin = geometry.inset * scale;
-    }
-    if (options.maxEdge) {
-      const scale = Math.min(
-        1,
-        options.maxEdge / Math.max(layout.width, layout.height),
-      );
-      for (const key of [
-        "width",
-        "height",
-        "margin",
-        "x",
-        "y",
-        "drawWidth",
-        "drawHeight",
-      ] as const)
-        layout[key] *= scale;
-    }
+    const layout = watermarkLayout(image.naturalWidth, image.naturalHeight, options);
     canvas.width = layout.width;
     canvas.height = layout.height;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const lines = buildWatermarkLines(
-      options.photo,
-      options.style,
-      options.babyProfile,
-    );
-    if (options.style.layout === "paper") {
-      drawFrame(ctx, canvas, image, lines, options, layout.margin);
-    } else {
-      ctx.drawImage(
-        image,
-        layout.x,
-        layout.y,
-        layout.drawWidth,
-        layout.drawHeight,
-      );
-      drawOverlay(ctx, canvas, lines, options, layout.margin);
-    }
+    paintWatermark(ctx, canvas, image, options, layout);
 
     const mime = options.outputFormat === "png" ? "image/png" : "image/jpeg";
     const quality = options.outputFormat === "png" ? undefined : 0.94;
@@ -98,8 +46,59 @@ export async function renderWatermark(options: RenderOptions): Promise<Blob> {
   }
 }
 
+export type WatermarkLayout = ReturnType<typeof printLayout>;
+
+/** Output canvas size and photo placement; platform-neutral. */
+export function watermarkLayout(
+  sourceWidth: number,
+  sourceHeight: number,
+  options: Pick<RenderOptions, "style" | "printSettings" | "maxEdge">,
+): WatermarkLayout {
+  const layout = printLayout(sourceWidth, sourceHeight, options.printSettings);
+  if (
+    options.style.layout === "paper" &&
+    (!options.printSettings || options.printSettings.size === "original")
+  ) {
+    const geometry = frameGeometry(layout.width, layout.height, options.style.frame, options.style);
+    const scale = Math.min(1, 3200 / Math.max(geometry.width, geometry.height));
+    layout.width = geometry.width * scale;
+    layout.height = geometry.height * scale;
+    layout.margin = geometry.inset * scale;
+  }
+  if (options.maxEdge) {
+    const scale = Math.min(1, options.maxEdge / Math.max(layout.width, layout.height));
+    for (const key of ["width", "height", "margin", "x", "y", "drawWidth", "drawHeight"] as const)
+      layout[key] *= scale;
+  }
+  layout.width = Math.max(1, Math.floor(layout.width));
+  layout.height = Math.max(1, Math.floor(layout.height));
+  return layout;
+}
+
+/**
+ * Draws photo and watermark onto a canvas already sized to `layout`.
+ * Works with any 2D context: browser canvas or WeChat mini program canvas.
+ */
+export function paintWatermark(
+  ctx: CanvasRenderingContext2D,
+  canvas: Surface,
+  image: Drawable,
+  options: RenderOptions,
+  layout: WatermarkLayout,
+) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const lines = buildWatermarkLines(options.photo, options.style, options.babyProfile);
+  if (options.style.layout === "paper") {
+    drawFrame(ctx, canvas, image, lines, options, layout.margin);
+  } else {
+    ctx.drawImage(image, layout.x, layout.y, layout.drawWidth, layout.drawHeight);
+    drawOverlay(ctx, canvas, lines, options, layout.margin);
+  }
+}
+
 export function buildWatermarkLines(
-  photo: PhotoItem,
+  photo: RenderPhoto,
   style: WatermarkStyle,
   babyProfile: BabyProfile,
 ) {
@@ -140,7 +139,7 @@ type Line = { icon: string; text: string };
 
 function drawOverlay(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
+  canvas: Surface,
   lines: Line[],
   options: RenderOptions,
   printMargin: number,
@@ -156,12 +155,71 @@ function drawOverlay(
     drawBigDate(ctx, canvas, date, lines.filter((line) => line.icon !== "clock"), style, printMargin);
     return;
   }
+  if (style.overlay === "subtitle") {
+    drawSubtitle(ctx, canvas, lines, style, printMargin);
+    return;
+  }
   drawWatermark(ctx, canvas, lines, style, printMargin);
+}
+
+/** Film subtitle: one centred line (the event, else the first line) with a quiet info line below. */
+function drawSubtitle(
+  ctx: CanvasRenderingContext2D,
+  canvas: Surface,
+  lines: Line[],
+  style: WatermarkStyle,
+  margin: number,
+) {
+  if (!lines.length) return;
+  const title = lines.find((line) => line.icon === "star") ?? lines[0];
+  const info = lines.filter((line) => line !== title).map((line) => line.text).join("  ·  ");
+  const family = fontStack(style.fontFamily);
+  const minSide = Math.min(canvas.width, canvas.height);
+  const available = Math.max(1, canvas.width - margin * 2);
+  let size = Math.max(1, minSide * style.fontSizeRatio);
+  ctx.save();
+  const widths = () => {
+    ctx.font = `${titleWeight(style.fontFamily)} ${size}px ${family}`;
+    const main = ctx.measureText(title.text).width;
+    ctx.font = `400 ${size * 0.56}px ${fontStack("sans")}`;
+    return { main, info: info ? ctx.measureText(info).width + size * 0.6 : 0 };
+  };
+  let measured = widths();
+  size *= Math.min(1, available / Math.max(1, measured.main * 1.04, measured.info * 1.04));
+  measured = widths();
+  const infoSize = size * 0.56;
+  const boxHeight = size * 1.2 + (info ? infoSize * 1.9 : 0);
+  const boxWidth = Math.min(available, Math.max(measured.main, measured.info) + size);
+  const origin = getBoxOrigin(style.position.startsWith("top") ? "top-center" : "bottom-center", canvas.width, canvas.height, boxWidth, boxHeight, margin);
+  if (style.showBackground && style.backdrop === "gradient") {
+    drawEdgeGradient(ctx, canvas, style.position, origin.y, boxHeight, style.backgroundOpacity);
+  } else if (style.showBackground) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${style.backgroundOpacity})`;
+    roundRect(ctx, origin.x - size * 0.2, origin.y - size * 0.3, boxWidth + size * 0.4, boxHeight + size * 0.6, size * 0.5);
+    ctx.fill();
+  }
+  const cx = canvas.width / 2;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = style.textColor;
+  ctx.globalAlpha = style.opacity;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = size * 0.18;
+  ctx.shadowOffsetY = size * 0.04;
+  ctx.font = `${titleWeight(style.fontFamily)} ${size}px ${family}`;
+  ctx.fillText(title.text, cx, origin.y + size * 0.6, available);
+  if (info) {
+    ctx.font = `400 ${infoSize}px ${fontStack("sans")}`;
+    ctx.globalAlpha = style.opacity * 0.86;
+    const y = origin.y + size * 1.2 + infoSize * 1.05;
+    ctx.fillText(info, cx, y, available);
+  }
+  ctx.restore();
 }
 
 function drawWatermark(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
+  canvas: Surface,
   lines: Line[],
   style: WatermarkStyle,
   printMargin: number,
@@ -214,8 +272,12 @@ function drawWatermark(
     drawEdgeGradient(ctx, canvas, style.position, origin.y, boxHeight, style.backgroundOpacity);
   } else if (style.showBackground) {
     ctx.fillStyle = `rgba(0, 0, 0, ${style.backgroundOpacity})`;
-    roundRect(ctx, origin.x, origin.y, boxWidth, boxHeight, fontSize * 0.62);
+    roundRect(ctx, origin.x, origin.y, boxWidth, boxHeight, fontSize * 0.9);
     ctx.fill();
+    // Hairline highlight: reads as frosted glass rather than a flat dark patch.
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = Math.max(1, fontSize * 0.05);
+    ctx.stroke();
   }
 
   ctx.globalAlpha = style.opacity;
@@ -250,7 +312,7 @@ function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 /** Soft scrim along the photo edge: keeps text legible without a hard plate. */
 function drawEdgeGradient(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
+  canvas: Surface,
   position: string,
   boxY: number,
   boxHeight: number,
@@ -272,7 +334,7 @@ function drawEdgeGradient(
 /** Orange LED date imprint, like the date back of a 90s film camera. */
 function drawFilmDate(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
+  canvas: Surface,
   text: string,
   style: WatermarkStyle,
   margin: number,
@@ -306,7 +368,7 @@ const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP
 /** Editorial layout: a large day number with month, year and a short caption. */
 function drawBigDate(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
+  canvas: Surface,
   date: Date,
   rest: Line[],
   style: WatermarkStyle,

@@ -11,12 +11,12 @@ try {
   await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);
   const assets = await page.evaluate(async () => {
     const { loadSamplePhoto, sampleBaby } = await import("/src/services/sample.ts");
-    const { defaultTemplates } = await import("/src/data/templates.ts");
+    const { allTemplates: defaultTemplates } = await import("/src/data/templates.ts");
     const { renderWatermark } = await import("/src/services/watermark.ts");
     const results = [];
     for (const template of defaultTemplates) {
       const photo = await loadSamplePhoto(template.id);
-      for (const [suffix, edge] of [["", 1200], ["-thumb", 420]]) {
+      for (const [suffix, edge] of [["", 1200], ["-thumb", 560]]) {
         const blob = await renderWatermark({ photo, style: template.style, babyProfile: sampleBaby, outputFormat: "jpeg", maxEdge: edge });
         const bitmap = await createImageBitmap(blob);
         const canvas = document.createElement("canvas");
@@ -24,7 +24,7 @@ try {
         canvas.height = bitmap.height;
         canvas.getContext("2d").drawImage(bitmap, 0, 0);
         bitmap.close();
-        results.push({ name: `${template.id}${suffix}.webp`, data: canvas.toDataURL("image/webp", 0.86).split(",")[1] });
+        results.push({ name: `${template.id}${suffix}.webp`, data: canvas.toDataURL("image/webp", 0.88).split(",")[1] });
         canvas.width = canvas.height = 1;
       }
     }

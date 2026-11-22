@@ -1,0 +1,283 @@
+.home {
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.hero {
+  padding: 24rpx 40rpx 48rpx;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.brand-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+}
+
+.title {
+  margin-top: 32rpx;
+  font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+  font-size: 60rpx;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 2rpx;
+}
+
+.em {
+  color: var(--accent);
+}
+
+.lead {
+  margin-top: 20rpx;
+  color: var(--muted);
+  font-size: 28rpx;
+  line-height: 1.7;
+}
+
+.example {
+  position: relative;
+  margin-top: 40rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 24rpx 48rpx rgba(42, 36, 32, 0.14);
+  transform: rotate(-1deg);
+}
+
+.example-img {
+  display: block;
+  width: 100%;
+}
+
+/* Caption below the photo: an overlay would hide the watermark it describes. */
+.example-label {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 18rpx 24rpx;
+  font-size: 24rpx;
+}
+
+.example-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.example-desc {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cta {
+  margin-top: 48rpx;
+}
+
+.section {
+  margin: 0 24rpx 24rpx;
+  padding: 40rpx 24rpx;
+  border-radius: 32rpx;
+  background: var(--card);
+}
+
+.section-head {
+  padding: 0 8rpx;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+}
+
+.section-title {
+  margin-top: 8rpx;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.filters {
+  margin-top: 24rpx;
+  white-space: nowrap;
+}
+
+.filters .chip {
+  margin: 0 8rpx;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx 20rpx;
+  margin-top: 28rpx;
+}
+
+.card {
+  padding: 10rpx;
+  border-radius: 24rpx;
+  border: 3rpx solid transparent;
+}
+
+.card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.thumb {
+  position: relative;
+  height: 196rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: #efe8dc;
+}
+
+.thumb image {
+  width: 100%;
+  height: 100%;
+}
+
+.check {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 44rpx;
+  text-align: center;
+}
+
+.card-name {
+  margin-top: 14rpx;
+  padding: 0 6rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.card-desc {
+  padding: 0 6rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.features {
+  margin-top: 24rpx;
+}
+
+.feature {
+  display: flex;
+  gap: 24rpx;
+  padding: 24rpx 8rpx;
+  border-bottom: 2rpx solid var(--line);
+}
+
+.feature:last-child {
+  border-bottom: none;
+}
+
+.feature-index {
+  color: var(--accent);
+  font-family: "Songti SC", serif;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.feature-title {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.feature-text {
+  margin-top: 4rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.caveat {
+  margin-top: 16rpx;
+  padding: 0 8rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+}
+
+.closing {
+  margin: 0 24rpx;
+  padding: 56rpx 40rpx;
+  border-radius: 32rpx;
+  background: var(--ink);
+  text-align: center;
+}
+
+.closing-title {
+  color: #fff;
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.web-hint {
+  margin: 24rpx 24rpx 0;
+  padding: 32rpx;
+  border-radius: 28rpx;
+  border: 2rpx dashed #d8cdbd;
+}
+
+.web-hint-title {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.web-hint-text {
+  margin-top: 8rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.web-hint-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
+  background: var(--card);
+  font-size: 24rpx;
+}
+
+.web-hint-url {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.web-hint-copy {
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.closing-btn {
+  margin-top: 32rpx;
+}
+
+.cta-sub {
+  margin-top: 20rpx;
+}

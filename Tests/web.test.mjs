@@ -142,7 +142,7 @@ test("postcard uses editable message and signature; empty strings stay hidden", 
 
 test("other template font sizes and colours remain unchanged", () => {
   assert.deepEqual(defaultTemplates.slice(0, 5).map(item => [item.style.fontSizeRatio, item.style.textColor]), [
-    [0.03, "#ffffff"], [0.025, "#ffffff"], [0.032, "#252827"], [0.032, "#65494e"], [0.032, "#252827"],
+    [0.03, "#ffffff"], [0.048, "#ffffff"], [0.034, "#252827"], [0.032, "#65494e"], [0.034, "#252827"],
   ]);
 });
 
@@ -456,7 +456,7 @@ for (const size of ["3", "5", "6"]) {
             outputFormat: "png",
             printSettings: { size, fit: "contain", marginMm: 10 },
           });
-          const expected = { postcard: 5, film: 3, gallery: 3, camera: 3 }[template.style.frame] ?? 2;
+          const expected = { postcard: 5, film: 3, camera: 3 }[template.style.frame] ?? 2;
           assert.equal(labels.length, expected, template.id);
           const margin = (10 / 25.4) * 300;
           for (const label of labels) {
@@ -480,7 +480,7 @@ for (const size of ["3", "5", "6"]) {
 test("template order and default match the requested catalogue", () => {
   assert.deepEqual(
     defaultTemplates.slice(0, 4).map((item) => item.name),
-    ["轻盈角标", "经典日期", "时光留白", "成长日记"],
+    ["轻盈角标", "电影字幕", "时光留白", "成长日记"],
   );
   assert.deepEqual(
     defaultTemplates.slice(4).map((item) => item.name),
@@ -489,6 +489,14 @@ test("template order and default match the requested catalogue", () => {
   assert.ok(defaultTemplates.every(item => !["noir", "film"].includes(item.style.frame)));
   assert.equal(defaultTemplates[0].style.layout, "overlay");
   assert.equal(new Set(defaultTemplates.map((item) => item.id)).size, defaultTemplates.length);
+});
+
+test("mini program swaps the EXIF camera bar for the life info bar", async () => {
+  const { allTemplates, defaultTemplates } = await source("src/data/templates.ts");
+  const mp = allTemplates.filter((item) => item.platform !== "web").map((item) => item.id);
+  assert.ok(!mp.includes("camera-bar") && mp.includes("info-bar"));
+  assert.ok(!defaultTemplates.some((item) => item.id === "info-bar"));
+  assert.equal(mp.length, defaultTemplates.length);
 });
 
 test("free-size frames add borders without changing the source image ratio", async () => {
@@ -502,8 +510,8 @@ test("free-size frames add borders without changing the source image ratio", asy
       [1200, 1200],
     ]) {
       const box = frameGeometry(width, height, template.style.frame);
-      assert.equal(box.width - 2 * box.inset, width);
-      assert.equal(box.height - box.top - box.footer, height);
+      assert.ok(Math.abs(box.width - 2 * box.inset - width) < 1e-6);
+      assert.ok(Math.abs(box.height - box.top - box.footer - height) < 1e-6);
     }
   }
 });
@@ -591,5 +599,143 @@ test("baby age works with every offered date format", async () => {
     const photo = { editedDateText: formatDateAs(at, format.id), editedLocationText: "", editedCoordinateText: "", eventNote: "", meta: {} };
     const lines = buildWatermarkLines(photo, style, { name: "小满", birthday: "2024-08-01" });
     assert.equal(lines[0].text, "小满 · 2岁1个月", format.id);
+  }
+});
+
+test("light EXIF reader matches exifr on the import fixtures", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { readJpegInfo } = await source("src/utils/exif-lite.ts");
+  const exifr = (await import("exifr")).default;
+  for (const [name, width, height] of [["landscape", 1600, 1000], ["portrait", 1000, 1600]]) {
+    const bytes = await readFile(`Tests/fixtures/${name}.jpg`);
+    const info = readJpegInfo(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    const reference = await exifr.parse(bytes, { gps: true });
+    assert.equal(info.meta.capturedAt.getTime(), reference.DateTimeOriginal.getTime());
+    assert.ok(Math.abs(info.meta.latitude - reference.latitude) < 1e-9);
+    assert.ok(Math.abs(info.meta.longitude - reference.longitude) < 1e-9);
+    assert.equal(info.storedWidth, width);
+    assert.equal(info.storedHeight, height);
+    assert.equal(info.orientation, 1);
+  }
+});
+
+test("light EXIF reader handles big-endian camera tags, orientation and junk", async () => {
+  const { readJpegInfo } = await source("src/utils/exif-lite.ts");
+  // Big-endian TIFF: IFD0 {Make, Model, Orientation=6, ExifIFD}; ExifIFD {DateTimeOriginal, ExposureTime, FNumber, ISO, FocalLength}
+  const tiff = [];
+  const u16 = (v) => tiff.push(v >> 8, v & 255);
+  const u32 = (v) => tiff.push(v >>> 24, (v >> 16) & 255, (v >> 8) & 255, v & 255);
+  const make = "Apple\0", model = "iPhone 16 Pro\0", date = "2026:09:22 16:30:05\0";
+  const ifd0 = 8, ifd0Size = 2 + 4 * 12 + 4;
+  const makeAt = ifd0 + ifd0Size, modelAt = makeAt + make.length, exifAt = modelAt + model.length;
+  const exifSize = 2 + 5 * 12 + 4;
+  const dateAt = exifAt + exifSize, ratAt = dateAt + date.length;
+  tiff.push(0x4d, 0x4d); u16(42); u32(ifd0);
+  u16(4);
+  u16(0x010f); u16(2); u32(make.length); u32(makeAt);
+  u16(0x0110); u16(2); u32(model.length); u32(modelAt);
+  u16(0x0112); u16(3); u32(1); u16(6); u16(0);
+  u16(0x8769); u16(4); u32(1); u32(exifAt);
+  u32(0);
+  for (const c of make + model) tiff.push(c.charCodeAt(0));
+  u16(5);
+  u16(0x9003); u16(2); u32(date.length); u32(dateAt);
+  u16(0x829a); u16(5); u32(1); u32(ratAt);
+  u16(0x829d); u16(5); u32(1); u32(ratAt + 8);
+  u16(0x8827); u16(3); u32(1); u16(80); u16(0);
+  u16(0x920a); u16(5); u32(1); u32(ratAt + 16);
+  u32(0);
+  for (const c of date) tiff.push(c.charCodeAt(0));
+  u32(1); u32(640); u32(18); u32(10); u32(24); u32(1);
+  const app1 = [...Buffer.from("Exif\0\0"), ...tiff];
+  const sof = [0xff, 0xc0, 0, 11, 8, 0x0b, 0xb8, 0x0f, 0xa0, 1, 1, 0x11, 0];
+  const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe1, (app1.length + 2) >> 8, (app1.length + 2) & 255, ...app1, ...sof, 0xff, 0xd9]);
+  const info = readJpegInfo(jpeg.buffer);
+  assert.equal(info.meta.cameraMake, "Apple");
+  assert.equal(info.meta.cameraModel, "iPhone 16 Pro");
+  assert.equal(info.orientation, 6);
+  assert.equal(info.meta.capturedAt.getTime(), new Date(2026, 8, 22, 16, 30, 5).getTime());
+  assert.equal(info.meta.exposure, "24mm  f/1.8  1/640s  ISO80");
+  assert.equal(info.storedWidth, 4000);
+  assert.equal(info.storedHeight, 3000);
+  // Truncated input and non-JPEG bytes never throw.
+  assert.deepEqual(readJpegInfo(jpeg.buffer.slice(0, 40)).meta.capturedAt, undefined);
+  assert.equal(readJpegInfo(new Uint8Array([137, 80, 78, 71]).buffer).orientation, 1);
+});
+
+test("map picks become short place labels", async () => {
+  const { placeLabel } = await source("src/utils/place.ts");
+  assert.equal(placeLabel("西湖风景区", "浙江省杭州市西湖区龙井路1号"), "杭州 西湖风景区");
+  assert.equal(placeLabel("故宫博物院", "北京市东城区景山前街4号"), "北京 故宫博物院");
+  assert.equal(placeLabel("杭州东站", "浙江省杭州市上城区天城路1号"), "杭州东站");
+  assert.equal(placeLabel("大理古城", "云南省大理白族自治州大理市复兴路"), "大理古城");
+  assert.equal(placeLabel("龙井路1号", "浙江省杭州市西湖区龙井路1号"), "杭州 西湖区");
+  assert.equal(placeLabel("", "广东省深圳市南山区"), "深圳");
+  assert.equal(placeLabel("维多利亚港", "香港特别行政区油尖旺区"), "维多利亚港");
+});
+
+test("collage grid fits every cell inside the page and centers a short last row", async () => {
+  const { collageGeometry, drawCollage } = await source("src/services/collage.ts");
+  for (const count of [2, 3, 4, 5, 7, 9, 12]) {
+    const g = collageGeometry(count, { layout: "grid", title: "成长", subtitle: "2025 — 2026", width: 1800 });
+    assert.equal(g.cells.length, count);
+    assert.equal(g.columns, count <= 4 ? 2 : 3);
+    for (const cell of g.cells) {
+      assert.ok(cell.x >= g.pad - 0.01 && cell.x + cell.width <= g.width - g.pad + 0.01, `x in bounds for ${count}`);
+      assert.ok(cell.y >= g.pad + g.header - 0.01 && cell.y + cell.height <= g.height - g.footer + 0.01, `y in bounds for ${count}`);
+    }
+    const last = g.cells.at(-1);
+    const lastRow = g.cells.filter((cell) => cell.y === last.y);
+    const left = lastRow[0].x - g.pad;
+    const right = g.width - g.pad - (last.x + last.width);
+    assert.ok(Math.abs(left - right) < 0.01, `last row centered for ${count}`);
+  }
+  const compare = collageGeometry(2, { layout: "compare", title: "", subtitle: "", width: 1600 });
+  assert.equal(compare.header, 0);
+  assert.ok(compare.cells[0].height > compare.cells[0].width);
+
+  const calls = [];
+  const ctx = new Proxy({ measureText: (text) => ({ width: text.length * 10 }) }, {
+    get(target, key) {
+      if (key in target) return target[key];
+      return (...args) => calls.push([key, ...args]);
+    },
+    set() { return true; },
+  });
+  const image = { width: 400, height: 300 };
+  const g = collageGeometry(3, { layout: "grid", title: "标题", subtitle: "", width: 900 });
+  drawCollage(ctx, { width: g.width, height: g.height }, [{ image, label: "3个月" }, { image, label: "" }, { image, label: "1岁" }], { layout: "grid", title: "标题", subtitle: "", theme: "cream", width: 900 });
+  const draws = calls.filter(([name]) => name === "drawImage");
+  assert.equal(draws.length, 3);
+  for (const [, , sx, sy, sw, sh] of draws) {
+    // Cover crop stays inside the source image.
+    assert.ok(sx >= 0 && sy >= 0 && sx + sw <= 400.01 && sy + sh <= 300.01);
+  }
+  const texts = calls.filter(([name]) => name === "fillText").map(([, text]) => text);
+  assert.deepEqual(texts, ["标题", "3个月", "1岁", "时光印记 · TIME IMPRINT"]);
+});
+
+test("every collage layout keeps photos inside the page at its size limits", async () => {
+  const { collageGeometry, collageLimits, drawCollage } = await source("src/services/collage.ts");
+  const ctx = new Proxy({ measureText: (text) => ({ width: text.length * 10 }) }, {
+    get(target, key) {
+      if (key in target) return target[key];
+      return () => {};
+    },
+    set() { return true; },
+  });
+  for (const [layout, { min, max }] of Object.entries(collageLimits)) {
+    for (const count of new Set([min, Math.ceil((min + max) / 2), max])) {
+      const options = { layout, title: "标题", subtitle: "副标题", theme: "pink", width: 1800 };
+      const g = collageGeometry(count, options);
+      assert.equal(g.cells.filter(Boolean).length, count, `${layout} ${count}`);
+      for (const cell of g.cells) {
+        const box = cell.card ?? cell;
+        assert.ok(box.x >= g.pad - 0.01 && box.x + box.width <= g.width - g.pad + 0.01, `${layout} ${count} x`);
+        assert.ok(box.y >= g.pad + g.header - 0.01 && box.y + box.height <= g.height - g.footer + 0.01, `${layout} ${count} y`);
+      }
+      const image = { width: 400, height: 300 };
+      drawCollage(ctx, g, Array.from({ length: count }, () => ({ image, label: "1岁" })), options);
+    }
   }
 });

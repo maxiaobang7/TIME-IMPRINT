@@ -45,8 +45,8 @@ export interface WatermarkStyle {
   postcardUnderline?: boolean;
   layout?: "overlay" | "paper";
   frame?: "minimal" | "growth" | "gallery" | "noir" | "film" | "postcard" | "polaroid" | "camera";
-  /** Overlay rendering: classic label, film-camera date stamp, or large editorial date. */
-  overlay?: "label" | "filmDate" | "bigDate";
+  /** Overlay rendering: classic label, film-camera date stamp, large editorial date, or a centred film subtitle. */
+  overlay?: "label" | "filmDate" | "bigDate" | "subtitle";
   /** Overlay backdrop when showBackground is on: rounded plate or soft edge gradient. */
   backdrop?: "box" | "gradient";
   fontFamily?: WatermarkFont;
@@ -68,6 +68,8 @@ export interface WatermarkTemplate {
   name: string;
   category: TemplateCategory;
   style: WatermarkStyle;
+  /** "web": needs camera EXIF, which WeChat strips. "mp": the mini program's stand-in for those. */
+  platform?: "web" | "mp";
 }
 
 export interface PhotoMeta {
@@ -80,12 +82,8 @@ export interface PhotoMeta {
   exposure?: string;
 }
 
-export interface PhotoItem {
-  id: string;
-  file: File;
-  name: string;
-  originalUrl: string;
-  previewUrl: string;
+/** The photo fields the renderer reads; shared by the web app and the mini program. */
+export interface RenderPhoto {
   meta: PhotoMeta;
   editedDateText: string;
   editedLocationText: string;
@@ -93,13 +91,21 @@ export interface PhotoItem {
   eventNote: string;
   postcardMessage?: string;
   postcardSignature?: string;
+}
+
+export interface PhotoItem extends RenderPhoto {
+  id: string;
+  file: File;
+  name: string;
+  originalUrl: string;
+  previewUrl: string;
   locationSource?: "manual" | "memory" | "approximate" | "online";
   renderedBlob?: Blob;
   renderedUrl?: string;
 }
 
 export interface RenderOptions {
-  photo: PhotoItem;
+  photo: RenderPhoto;
   style: WatermarkStyle;
   babyProfile: BabyProfile;
   outputFormat: OutputFormat;

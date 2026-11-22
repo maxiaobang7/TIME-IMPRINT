@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { Icons } from "./icons";
 import { useMemo } from "react";
-import { babyAgeText, dateFormats, formatDateAs, parseAnyDate } from "./utils/date";
+import { babyAgeText, dateFormats, formatDateAs, parseAnyDate, photoDateOf } from "./utils/date";
 import { fontOptions } from "./services/fonts";
 import type { DragEvent } from "react";
 import { StudioHome, StudioTemplateLibrary } from "./Studio";
@@ -1552,17 +1552,6 @@ function ToggleChip(props: {
 }
 
 /** Date shown in the text field if it parses; EXIF only when the field is empty. */
-function photoDateOf(photo: PhotoItem) {
-  const typed = photo.editedDateText.trim();
-  if (!typed) return photo.meta.capturedAt;
-  const parsed = parseAnyDate(typed);
-  const exif = photo.meta.capturedAt;
-  // Date-only formats drop the time; restore it from EXIF when the day still matches.
-  if (parsed && exif && parsed.getHours() === 0 && parsed.getMinutes() === 0 && parsed.toDateString() === exif.toDateString())
-    return exif;
-  return parsed;
-}
-
 function outputName(photo: PhotoItem, format: "jpeg" | "png") {
   const base = photo.name.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]/g, "-");
   return base + "-时光印记." + (format === "png" ? "png" : "jpg");

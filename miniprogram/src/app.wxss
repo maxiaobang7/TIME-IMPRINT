@@ -1,0 +1,77 @@
+page {
+  --bg: #f7f2ea;
+  --card: #fffdf9;
+  --ink: #2a2420;
+  --muted: #8a7f76;
+  --line: #e8dfd2;
+  --accent: #c0552f;
+  --accent-soft: #f6e3d9;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  width: 100% !important;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+button::after {
+  border: none;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: var(--accent);
+  color: #fff;
+  font-size: 30rpx;
+  box-shadow: 0 12rpx 28rpx rgba(192, 85, 47, 0.25);
+}
+
+.btn-primary.button-hover {
+  background: #a9471f;
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 28rpx;
+  border: 2rpx solid var(--line);
+}
+
+.btn-secondary.button-hover {
+  background: #f1ebe1;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 60rpx;
+  padding: 0 24rpx;
+  border-radius: 30rpx;
+  background: var(--card);
+  border: 2rpx solid var(--line);
+  color: var(--ink);
+  font-size: 24rpx;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}

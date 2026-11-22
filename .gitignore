@@ -24,3 +24,6 @@ vite.config.d.ts
 !.env.example
 .DS_Store
 Thumbs.db
+
+# WeChat DevTools per-machine settings
+miniprogram/project.private.config.json

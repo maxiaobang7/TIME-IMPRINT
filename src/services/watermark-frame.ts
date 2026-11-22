@@ -1,4 +1,5 @@
 import type { PhotoMeta, PrintSettings, RenderOptions, WatermarkStyle } from "../types";
+import { sourceSize, type Drawable, type Surface } from "./surface";
 import { drawPostcard } from "./postcard";
 import { fontStack, titleWeight } from "./fonts";
 
@@ -6,20 +7,20 @@ type Frame = WatermarkStyle["frame"];
 type Line = { icon: string; text: string };
 
 const footerFactor = (frame: Frame) =>
-  frame === "polaroid" ? 1.3 : frame === "camera" ? 0.62 : frame === "growth" || frame === "postcard" ? 1 : 0.9;
+  frame === "polaroid" ? 1.3 : frame === "camera" ? 0.62 : frame === "gallery" ? 0.86 : frame === "growth" || frame === "postcard" ? 1 : 0.9;
 
 export function frameSpacing(unit: number, frame: Frame, style: Partial<WatermarkStyle> = {}, size: PrintSettings["size"] = "original") {
   const factor = style.frameWidth === "narrow" ? 0.58 : style.frameWidth === "wide" ? 1.4 : 1;
   const footerScale = Number.isFinite(style.frameFooterScale) ? Math.min(1.5, Math.max(0.85, style.frameFooterScale!)) : 1;
   const presets = { "3": [50.8, 3, 12, 3], "5": [88.9, 5, 18, 4], "6": [101.6, 6, 21, 5] };
   const preset = size === "original" ? undefined : presets[size];
-  // The camera bar keeps the photo almost edge to edge, like a phone-camera watermark.
-  const insetRatio = frame === "camera" ? 0.018 : 0.06;
+  // The camera bar keeps the photo almost edge to edge; the gallery mat is deliberately generous.
+  const insetRatio = frame === "camera" ? 0.018 : frame === "gallery" ? 0.085 : 0.06;
   const inset = preset ? unit / preset[0] * preset[1] * factor : unit * insetRatio * factor;
   const baseFooter = preset ? unit / preset[0] * preset[2] : unit * 0.24;
   const footer = baseFooter * footerFactor(frame) * footerScale;
   const safe = preset ? unit / preset[0] * preset[3] : unit * 0.045;
-  return { inset, top: inset + (frame === "gallery" || frame === "film" ? unit * 0.055 : 0), footer, safe };
+  return { inset, top: inset + (frame === "film" ? unit * 0.055 : 0), footer, safe };
 }
 
 export function frameGeometry(
@@ -48,19 +49,20 @@ const paperColors: Partial<Record<NonNullable<Frame>, string>> = {
 
 export function drawFrame(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
-  image: HTMLImageElement,
+  canvas: Surface,
+  image: Drawable,
   lines: Line[],
   options: RenderOptions,
   margin: number,
 ) {
   const frame = options.style.frame ?? "minimal";
+  const source = sourceSize(image);
   const unit = Math.min(canvas.width, canvas.height);
   const free =
     !options.printSettings || options.printSettings.size === "original";
   const geometry = frameGeometry(
-    image.naturalWidth,
-    image.naturalHeight,
+    source.width,
+    source.height,
     frame,
     options.style,
   );
@@ -69,7 +71,7 @@ export function drawFrame(
   const inset = free ? geometry.inset * scale : spacing.inset;
   const top = free
     ? geometry.top * scale
-    : Math.max(spacing.top, frame === "gallery" || frame === "film" ? margin + unit * 0.055 : 0);
+    : Math.max(spacing.top, frame === "film" ? margin + unit * 0.055 : 0);
   const footer = free
     ? geometry.footer * scale
     : Math.max(spacing.footer, margin + unit * 0.09);
@@ -80,17 +82,17 @@ export function drawFrame(
   // Free-size frames grow around the image; only fixed paper may crop by explicit choice.
   const fit =
     !free && options.printSettings?.fit === "cover" ? Math.max : Math.min;
-  const factor = fit(width / image.naturalWidth, height / image.naturalHeight);
+  const factor = fit(width / source.width, height / source.height);
   ctx.save();
   ctx.beginPath();
   ctx.rect(inset, top, width, height);
   ctx.clip();
   ctx.drawImage(
     image,
-    inset + (width - image.naturalWidth * factor) / 2,
-    top + (height - image.naturalHeight * factor) / 2,
-    image.naturalWidth * factor,
-    image.naturalHeight * factor,
+    inset + (width - source.width * factor) / 2,
+    top + (height - source.height * factor) / 2,
+    source.width * factor,
+    source.height * factor,
   );
   ctx.restore();
   const footerTop = canvas.height - footer;
@@ -126,7 +128,8 @@ export function drawFrame(
   const contentTop =
     footerTop +
     (frame === "growth" ? unit * 0.04 : unit * 0.025);
-  const contentBottom = canvas.height - safe;
+  // The wide gallery mat would leave the label no room if it kept the full side margin below.
+  const contentBottom = canvas.height - (frame === "gallery" ? Math.max(margin, spacing.safe, inset * 0.6) : safe);
   const contentHeight = Math.max(1, contentBottom - contentTop);
   const center = (contentTop + contentBottom) / 2;
   ctx.save();
@@ -179,10 +182,22 @@ export function drawFrame(
     ctx.globalAlpha = options.style.opacity * (index ? 0.68 : 1);
     const offset = frame === "polaroid" && rows.length > 1 ? (index ? 0.22 : -0.12) * contentHeight : ((index - (rows.length - 1) / 2) * contentHeight) / rows.length;
     ctx.fillText(text, x, center + offset, available);
+    if (frame === "minimal" && !index && ctx.textAlign === "center") {
+      // Short rules either side of the title, like a printed caption.
+      const half = Math.min(available, ctx.measureText(text).width) / 2;
+      const gap = font * 0.8;
+      const length = Math.min(font * 1.8, (available / 2 - half - gap) * 0.9);
+      if (length > font * 0.4) {
+        ctx.globalAlpha = options.style.opacity * 0.4;
+        const thickness = Math.max(1, font * 0.05);
+        ctx.fillRect(x - half - gap - length, center + offset - thickness / 2, length, thickness);
+        ctx.fillRect(x + half + gap, center + offset - thickness / 2, length, thickness);
+      }
+    }
   });
-  if (frame === "film" || frame === "gallery") {
-    ctx.textAlign = frame === "film" ? "left" : "center";
-    ctx.fillStyle = frame === "film" ? "#d7b687" : "#717a74";
+  if (frame === "film") {
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#d7b687";
     ctx.globalAlpha = options.style.opacity;
     const font = Math.min(unit * 0.019, Math.max(1, top - margin) * 0.65);
     ctx.font = `600 ${font}px ${fontStack("sans")}`;
@@ -218,10 +233,11 @@ function drawCameraBar(
   const find = (icon: string) => lines.find((line) => line.icon === icon)?.text ?? "";
   const event = find("star");
   const baby = find("heart");
-  const leftTitle = cameraName(photo.meta ?? {}) || event || baby || "TIME IMPRINT";
+  // Without camera, event or baby, the date moves to the left so the bar is never a placeholder.
+  const leftTitle = cameraName(photo.meta ?? {}) || event || baby || find("clock") || "TIME IMPRINT";
   const leftSub = [photo.meta?.exposure, leftTitle === event ? baby : event || baby]
-    .find((text) => !!text) ?? "";
-  const rightTitle = find("clock") || find("pin");
+    .find((text) => !!text && text !== leftTitle) ?? "";
+  const rightTitle = [find("clock"), find("pin")].find((text) => text && text !== leftTitle) ?? "";
   const rightSub = [find("pin"), find("target")].find((text) => text && text !== rightTitle) ?? "";
   const family = fontStack(style.fontFamily);
   const center = y + height / 2;

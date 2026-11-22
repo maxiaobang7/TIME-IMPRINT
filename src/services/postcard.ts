@@ -1,4 +1,5 @@
 import type { RenderOptions } from "../types";
+import { fontStacks } from "./fonts";
 
 export const postcardMessage = "陪你，慢慢看世界";
 export const postcardFont = '"PostcardHand", "KaiTi", "STKaiti", serif';
@@ -72,10 +73,10 @@ export function drawPostcard(
       ctx.stroke();
       ctx.restore();
     }
-    text(line.text, x + pin, centerY, divider - x - gap - pin, size, "sans-serif");
+    text(line.text, x + pin, centerY, divider - x - gap - pin, size, fontStacks.sans);
   });
   if (message) {
-    text(message, textStart, y + height * (signature ? 0.34 : 0.5), textWidth, Math.min(unit * style.fontSizeRatio, height * 0.44), postcardFont);
+    text(message, textStart, y + height * (signature ? 0.34 : 0.5), textWidth, Math.min(unit * style.fontSizeRatio, height * 0.44), fontStacks.hand);
     if (style.postcardUnderline !== false) {
       ctx.beginPath();
       ctx.moveTo(textStart + textWidth * 0.3, y + height * 0.66);
@@ -83,7 +84,7 @@ export function drawPostcard(
       ctx.stroke();
     }
   }
-  if (signature) text(signature, end, y + height * (message ? 0.87 : 0.5), textWidth, Math.min(unit * style.fontSizeRatio * 0.45, height * 0.22), postcardFont, "right");
+  if (signature) text(signature, end, y + height * (message ? 0.87 : 0.5), textWidth, Math.min(unit * style.fontSizeRatio * 0.45, height * 0.22), fontStacks.hand, "right");
   if (stamp) drawPostmark(ctx, x + width - stampSize / 2, y + height / 2, stampSize);
   ctx.restore();
 }

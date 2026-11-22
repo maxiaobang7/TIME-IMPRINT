@@ -1,0 +1,183 @@
+<!-- Small picture of each layout, built from sample photos. -->
+<template name="mini">
+  <view class="mini mini-{{id}}">
+    <block wx:if="{{id === 'grid'}}">
+      <image wx:for="{{s}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </block>
+    <block wx:elif="{{id === 'compare'}}">
+      <view class="mini-pair"><image src="{{s[0]}}" mode="aspectFill" /><text>去年</text></view>
+      <view class="mini-pair"><image src="{{s[1]}}" mode="aspectFill" /><text>今年</text></view>
+    </block>
+    <block wx:elif="{{id === 'hero'}}">
+      <image class="mini-big" src="{{s[2]}}" mode="aspectFill" />
+      <view class="mini-row"><image src="{{s[0]}}" mode="aspectFill" /><image src="{{s[1]}}" mode="aspectFill" /><image src="{{s[3]}}" mode="aspectFill" /></view>
+    </block>
+    <block wx:elif="{{id === 'polaroid'}}">
+      <view class="mini-card tilt-l"><image src="{{s[0]}}" mode="aspectFill" /><text>9.22</text></view>
+      <view class="mini-card tilt-r"><image src="{{s[3]}}" mode="aspectFill" /><text>10.1</text></view>
+    </block>
+    <block wx:elif="{{id === 'film'}}">
+      <view class="mini-strip">
+        <view class="mini-frame"><image src="{{s[4]}}" mode="aspectFill" /><text>'26 9 22</text></view>
+        <view class="mini-frame"><image src="{{s[1]}}" mode="aspectFill" /><text>'26 10 1</text></view>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="mini-line" />
+      <view class="mini-step"><view class="mini-dot" /><view class="mini-step-body"><text>满月</text><image src="{{s[0]}}" mode="aspectFill" /></view></view>
+      <view class="mini-step"><view class="mini-dot" /><view class="mini-step-body"><text>百天</text><image src="{{s[5]}}" mode="aspectFill" /></view></view>
+    </block>
+  </view>
+</template>
+
+<view class="collage">
+  <!-- Before any photos: a gallery of what can be made. -->
+  <scroll-view wx:if="{{!ready}}" class="intro" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="intro-head">
+      <view class="eyebrow">COLLAGE</view>
+      <view class="intro-title">把一段时光<text class="em">拼成一张</text></view>
+      <view class="intro-lead">选好照片，自动按拍摄时间排好，每格标上{{hasBirthday ? '月龄' : '日期'}}。6 种版式，一键换着看。</view>
+    </view>
+
+    <view class="gallery">
+      <view wx:for="{{layouts}}" wx:key="id" class="gallery-card" data-id="{{item.id}}" bindtap="onStart" aria-role="button" aria-label="用{{item.name}}版式选照片">
+        <template is="mini" data="{{id: item.id, s: samples}}" />
+        <view class="gallery-name">{{item.name}}<text class="gallery-range">{{item.range}}</text></view>
+        <view class="gallery-desc">{{item.desc}}</view>
+      </view>
+    </view>
+
+    <view class="steps">
+      <view class="steps-title">三步完成</view>
+      <view class="step"><text class="step-num">1</text><view><view class="step-name">选版式和照片</view><view class="step-text">点上面任意一种版式，再从相册选照片，最多 20 张。</view></view></view>
+      <view class="step"><text class="step-num">2</text><view><view class="step-name">挑照片、改标题</view><view class="step-text">点照片决定拼哪几张；标题、底色、顺序都能改。</view></view></view>
+      <view class="step"><text class="step-num">3</text><view><view class="step-name">保存或发给家人</view><view class="step-text">导出 1800 像素宽的高清图，照片不会上传。</view></view></view>
+    </view>
+
+    <view class="tip" wx:if="{{!hasBirthday}}">
+      <text class="tip-title">想按月龄标注？</text>
+      在「制作水印」页填一次宝宝生日，拼图里每格会自动写上「3个月」「1岁2个月」。
+    </view>
+    <view class="tip" wx:else>
+      <text class="tip-title">已填写{{babyName ? babyName + '的' : ''}}生日</text>
+      每格会自动标上月龄。iPhone 照片没有拍摄日期，可以先在「制作水印」页填好，再点「拼成一张」。
+    </view>
+
+    <view class="intro-end" />
+  </scroll-view>
+
+  <view wx:if="{{!ready}}" class="bottom-bar">
+    <button class="btn-primary save" bindtap="onAdd">选择照片，做「{{layoutName || '成长拼图'}}」</button>
+  </view>
+
+  <!-- Editing. -->
+  <view class="stage {{ready ? '' : 'stage-hidden'}}">
+    <view class="canvas-wrap">
+      <canvas type="2d" id="collage" class="preview" style="width:{{previewW}}px;height:{{previewH}}px" />
+    </view>
+    <view wx:if="{{ready && count < min}}" class="notice">「{{layoutName}}」至少选 {{min}} 张照片</view>
+  </view>
+
+  <scroll-view wx:if="{{ready}}" class="controls" scroll-y enhanced show-scrollbar="{{false}}">
+    <scroll-view class="layout-strip" scroll-x enable-flex scroll-into-view="l-{{layout}}">
+      <view
+        wx:for="{{layouts}}"
+        wx:key="id"
+        id="l-{{item.id}}"
+        class="layout-card {{layout === item.id ? 'active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onLayout"
+        aria-role="radio"
+        aria-checked="{{layout === item.id}}"
+      >
+        <template is="mini" data="{{id: item.id, s: samples}}" />
+        <view class="layout-name">{{item.name}}</view>
+      </view>
+    </scroll-view>
+
+    <view class="panel">
+      <view class="field">
+        <view class="label-row">
+          <text class="label">照片</text>
+          <view>
+            <text class="value">已选 {{count}} / {{max}}</text>
+            <text wx:if="{{layout !== 'compare'}}" class="link" bindtap="onSelectAll">{{count >= max || count >= tiles.length ? '全不选' : '全选'}}</text>
+          </view>
+        </view>
+        <view class="tiles">
+          <view
+            wx:for="{{tiles}}"
+            wx:key="key"
+            class="tile {{item.selected ? 'on' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onTile"
+            aria-role="checkbox"
+            aria-checked="{{item.selected}}"
+            aria-label="{{item.label}}"
+          >
+            <image src="{{item.path}}" mode="aspectFill" lazy-load />
+            <view wx:if="{{item.selected}}" class="tile-order">{{item.order}}</view>
+            <view class="tile-label {{item.dated ? '' : 'undated'}}" catchtap="noop">
+              <picker mode="date" value="{{item.iso}}" end="{{today}}" data-key="{{item.key}}" bindchange="onTileDate">
+                <view class="tile-date">{{item.dated ? item.label : '填日期'}}<text class="tile-edit">✎</text></view>
+              </picker>
+            </view>
+          </view>
+          <view wx:if="{{tiles.length < 20}}" class="tile add" bindtap="onAdd" aria-role="button" aria-label="添加照片">＋<text>添加</text></view>
+        </view>
+        <view class="hint">{{layout === 'compare' ? '选两张：同一个地方、同一个姿势，效果最好。' : '点照片选中或取消；点照片下方的日期可以修改，拼图会按日期重新排序。'}}</view>
+      </view>
+
+      <view class="field">
+        <view class="label">每格标注</view>
+        <view class="segmented">
+          <view wx:if="{{hasBirthday}}" class="seg {{labelMode === 'age' ? 'active' : ''}}" data-id="age" bindtap="onLabel">月龄</view>
+          <view class="seg {{labelMode === 'date' ? 'active' : ''}}" data-id="date" bindtap="onLabel">日期</view>
+          <view class="seg {{labelMode === 'none' ? 'active' : ''}}" data-id="none" bindtap="onLabel">不标注</view>
+        </view>
+        <view wx:if="{{!hasBirthday}}" class="hint">在「制作水印」页填上宝宝生日，就能按月龄标注</view>
+      </view>
+
+      <view class="field">
+        <view class="label">顺序</view>
+        <view class="segmented">
+          <view class="seg {{order === 'asc' ? 'active' : ''}}" data-id="asc" bindtap="onOrder">从早到晚</view>
+          <view class="seg {{order === 'desc' ? 'active' : ''}}" data-id="desc" bindtap="onOrder">从晚到早</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label">标题</view>
+        <input class="input" value="{{title}}" placeholder="不填就不显示标题" maxlength="20" bindinput="onTitle" />
+        <input class="input" value="{{subtitle}}" placeholder="副标题，例如 2025.09 — 2026.09" maxlength="30" bindinput="onSubtitle" />
+      </view>
+
+      <view class="field">
+        <view class="label">底色</view>
+        <view class="swatches">
+          <view
+            wx:for="{{themes}}"
+            wx:key="id"
+            class="swatch {{theme === item.id ? 'active' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onTheme"
+            aria-role="radio"
+            aria-checked="{{theme === item.id}}"
+            aria-label="{{item.label}}"
+          >
+            <view class="swatch-dot" style="background:{{item.color}}" />
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="controls-end" />
+  </scroll-view>
+
+  <view wx:if="{{ready}}" class="bottom-bar">
+    <button class="btn-secondary share" bindtap="onShare">发给朋友</button>
+    <button class="btn-primary save" bindtap="onSave">保存拼图</button>
+  </view>
+
+  <canvas type="2d" id="collage-work" class="work-canvas" />
+</view>

@@ -1,0 +1,85 @@
+<view class="home">
+  <view class="hero">
+    <view class="brand">
+      <image class="brand-icon" src="/images/brand.png" mode="aspectFit" />
+      <text>时光印记</text>
+    </view>
+    <view class="title">给照片印上<text class="em">那一天</text></view>
+    <view class="lead">日期、地点、宝宝月龄，一键印上，让记忆永不褪色。</view>
+
+    <view class="example">
+      <image class="example-img" src="{{selected.src}}" mode="widthFix" binderror="onExampleError" />
+      <view class="example-label">
+        <text class="example-name">{{selected.name}}</text>
+        <text class="example-desc">{{selected.description}}</text>
+      </view>
+    </view>
+
+    <button class="btn-primary cta" bindtap="onPick">选择照片，开始制作</button>
+    <button class="btn-secondary cta-sub" bindtap="onCollage">做一张成长拼图</button>
+  </view>
+
+  <view class="section">
+    <view class="section-head">
+      <view class="eyebrow">TEMPLATES</view>
+      <view class="section-title">{{count}} 种风格，总有一款适合今天</view>
+    </view>
+    <scroll-view class="filters" scroll-x enable-flex>
+      <view
+        wx:for="{{filters}}"
+        wx:key="id"
+        class="chip {{filter === item.id ? 'active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onFilter"
+      >{{item.label}}</view>
+    </scroll-view>
+    <view class="grid">
+      <view
+        wx:for="{{visible}}"
+        wx:key="id"
+        class="card {{templateId === item.id ? 'selected' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onChoose"
+        aria-role="button"
+        aria-label="{{item.name}}"
+      >
+        <view class="thumb">
+          <image src="{{thumbBase ? thumbBase : '/images/templates/'}}{{item.id}}-thumb.jpg" mode="aspectFill" lazy-load binderror="onExampleError" />
+          <view wx:if="{{templateId === item.id}}" class="check">✓</view>
+        </view>
+        <view class="card-name">{{item.name}}</view>
+        <view class="card-desc">{{item.description}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-head">
+      <view class="eyebrow">FEATURES</view>
+      <view class="section-title">几步填好，印上那一天</view>
+    </view>
+    <view class="features">
+      <view wx:for="{{features}}" wx:key="title" class="feature">
+        <view class="feature-index">0{{index + 1}}</view>
+        <view>
+          <view class="feature-title">{{item.title}}</view>
+          <view class="feature-text">{{item.text}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="closing">
+    <view class="closing-title">把今天，留给以后的你们</view>
+    <button class="btn-primary closing-btn" bindtap="onPick">选择照片</button>
+  </view>
+
+  <view class="web-hint">
+    <view class="web-hint-title">想自动读取拍摄时间和地点？</view>
+    <view class="web-hint-text">微信发给小程序的照片不带拍摄信息，所以这里需要手动填写。用浏览器打开「时光印记」网页版，选照片后会自动读出时间和地点。</view>
+    <view wx:if="{{webUrl}}" class="web-hint-link" bindtap="onCopyWeb">
+      <text class="web-hint-url">{{webUrl}}</text>
+      <text class="web-hint-copy">复制网址</text>
+    </view>
+  </view>
+</view>

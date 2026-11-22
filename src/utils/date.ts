@@ -1,3 +1,5 @@
+import type { RenderPhoto } from "../types";
+
 export function formatCaptureDate(date?: Date): string {
   if (!date || Number.isNaN(date.getTime())) return "";
   const source = date;
@@ -94,4 +96,16 @@ export function parseAnyDate(text: string): Date | undefined {
 /** "'26 9 22" style used by film cameras' date backs. */
 export function filmDateText(date: Date): string {
   return `'${String(date.getFullYear()).slice(-2)} ${date.getMonth() + 1} ${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** The date a photo should show: typed text first, keeping EXIF time when only the day was typed. */
+export function photoDateOf(photo: Pick<RenderPhoto, "editedDateText" | "meta">) {
+  const typed = photo.editedDateText.trim();
+  if (!typed) return photo.meta.capturedAt;
+  const parsed = parseAnyDate(typed);
+  const exif = photo.meta.capturedAt;
+  // Date-only formats drop the time; restore it from EXIF when the day still matches.
+  if (parsed && exif && parsed.getHours() === 0 && parsed.getMinutes() === 0 && parsed.toDateString() === exif.toDateString())
+    return exif;
+  return parsed;
 }

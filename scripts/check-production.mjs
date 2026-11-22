@@ -11,7 +11,7 @@ try {
   assert.equal(manifestResponse.status, 200);
   const manifest = await manifestResponse.json();
   assert.equal(manifest.name, "时光印记");
-  for (const asset of ["/sw.js", "/fonts/MaShanZheng-Regular.woff2", "/studio/sample-scenes.webp", ...manifest.icons.map(icon => icon.src)]) {
+  for (const asset of ["/sw.js", "/fonts/MaShanZheng-Regular.woff2", "/studio/previews/travel-memory.webp", ...manifest.icons.map(icon => icon.src)]) {
     const response = await fetch(origin + asset);
     assert.equal(response.status, 200, asset);
     assert.ok(!response.headers.get("content-type")?.includes("text/html"), `${asset} served HTML`);
@@ -53,7 +53,7 @@ try {
   }
   await page.getByLabel("更多导出选项").click();
   await page.getByRole("tab", { name: "模板", exact: true }).click();
-  for (const name of ["轻盈角标", "经典日期", "时光留白", "成长日记", "纯白画廊", "旅行明信片"]) {
+  for (const name of ["轻盈角标", "电影字幕", "时光留白", "成长日记", "纯白画廊", "旅行明信片"]) {
     await page.locator(".inspector .studio-template-grid > button").filter({ hasText: name }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "保存图片", exact: true }).click();
@@ -72,7 +72,7 @@ try {
   page.once("dialog", dialog => dialog.accept());
   await page.reload();
   await page.locator(".home-example img").waitFor();
-  await page.locator('input[type="file"]').setInputFiles("public/studio/sample-scenes.webp");
+  await page.locator('input[type="file"]').setInputFiles("scripts/assets/sample-scenes.webp");
   await page.locator(".photo-frame img").waitFor();
   await page.getByRole("tab", { name: "文字", exact: true }).click();
   assert.equal(await page.getByPlaceholder("未读取到拍摄时间，可手动填写").inputValue(), "");

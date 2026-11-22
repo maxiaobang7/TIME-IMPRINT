@@ -1,0 +1,249 @@
+<view class="editor">
+  <view class="stage">
+    <view class="canvas-wrap" style="{{hasPhotos ? '' : 'height:0;overflow:hidden'}}">
+      <canvas type="2d" id="preview" class="preview" style="width:{{previewW}}px;height:{{previewH}}px" />
+    </view>
+    <view wx:if="{{!hasPhotos}}" class="empty">
+      <view class="empty-title">还没有照片</view>
+      <view class="empty-text">从相册选几张，或者现拍一张</view>
+      <button class="btn-primary empty-btn" bindtap="onAdd">选择照片</button>
+    </view>
+    <picker wx:elif="{{text.noDate}}" mode="date" value="{{text.pickerDate}}" end="{{today}}" bindchange="onPickDate">
+      <view class="notice">还没有日期，<text class="notice-action">点这里选日期 ›</text></view>
+    </picker>
+  </view>
+
+  <scroll-view wx:if="{{hasPhotos}}" class="controls" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="strip-row">
+      <scroll-view class="strip" scroll-x enable-flex scroll-into-view="t{{current}}">
+        <view
+          wx:for="{{thumbs}}"
+          wx:key="id"
+          id="t{{index}}"
+          class="thumb {{index === current ? 'active' : ''}}"
+          data-index="{{index}}"
+          bindtap="onSelect"
+          aria-role="button"
+          aria-label="第 {{index + 1}} 张"
+        >
+          <image src="{{item.path}}" mode="aspectFill" lazy-load />
+        </view>
+        <view wx:if="{{thumbs.length < max}}" class="thumb add" bindtap="onAdd" aria-role="button" aria-label="添加照片">＋</view>
+      </scroll-view>
+      <view class="strip-meta">
+        <text>{{current + 1}} / {{thumbs.length}}</text>
+        <text wx:if="{{thumbs.length > 1}}" class="link" bindtap="onCollage">拼成一张</text>
+        <text class="link" bindtap="onRemove">移除</text>
+      </view>
+    </view>
+
+    <view class="block">
+      <view class="block-title">模板</view>
+      <scroll-view class="templates" scroll-x enable-flex>
+        <view
+          wx:for="{{templates}}"
+          wx:key="id"
+          class="tpl {{templateId === item.id ? 'active' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="onTemplate"
+        >
+          <image src="/images/templates/{{item.id}}-thumb.jpg" mode="aspectFill" />
+          <view class="tpl-name">{{item.name}}</view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="tabs">
+      <view class="tab {{tab === 'text' ? 'active' : ''}}" data-id="text" bindtap="onTab">文字</view>
+      <view class="tab {{tab === 'style' ? 'active' : ''}}" data-id="style" bindtap="onTab">样式</view>
+    </view>
+
+    <!-- 文字 -->
+    <view wx:if="{{tab === 'text'}}" class="panel">
+      <view class="field">
+        <view class="label-row">
+          <text class="label">日期</text>
+          <switch class="mini-switch" checked="{{style.showTime}}" data-key="showTime" bindchange="onToggle" color="#c0552f" />
+        </view>
+        <view class="input-row">
+          <input class="input" value="{{text.date}}" placeholder="例如 2026年9月22日" data-field="editedDateText" bindinput="onText" />
+          <picker mode="date" value="{{text.pickerDate}}" end="{{today}}" bindchange="onPickDate">
+            <view class="side-btn">选日期</view>
+          </picker>
+        </view>
+        <scroll-view wx:if="{{recent.date.length}}" class="chips recent" scroll-x enable-flex>
+          <text class="recent-label">最近用过</text>
+          <view wx:for="{{recent.date}}" wx:key="*this" class="chip recent-chip" data-kind="date" data-value="{{item.value}}" data-label="{{item.label}}" bindtap="onRecent" bindlongpress="onRecentRemove">{{item.label}}</view>
+        </scroll-view>
+        <scroll-view class="chips" scroll-x enable-flex>
+          <view wx:for="{{text.dateChips}}" wx:key="id" class="chip" data-id="{{item.id}}" bindtap="onDateFormat">{{item.label}}</view>
+        </scroll-view>
+        <view class="hint">点格式会应用到全部照片</view>
+      </view>
+
+      <view class="field">
+        <view class="label-row">
+          <text class="label">地点</text>
+          <switch class="mini-switch" checked="{{style.showLocation}}" data-key="showLocation" bindchange="onToggle" color="#c0552f" />
+        </view>
+        <view class="input-row">
+          <input class="input" value="{{text.location}}" placeholder="例如 杭州 西湖" data-field="editedLocationText" bindinput="onText" />
+          <view class="side-btn" bindtap="onMap">地图选点</view>
+          <view wx:if="{{thumbs.length > 1}}" class="side-btn" data-field="editedLocationText" bindtap="onSync">同步全部</view>
+        </view>
+        <scroll-view wx:if="{{recent.location.length}}" class="chips recent" scroll-x enable-flex>
+          <text class="recent-label">最近用过</text>
+          <view wx:for="{{recent.location}}" wx:key="*this" class="chip recent-chip" data-kind="location" data-value="{{item}}" data-label="{{item}}" bindtap="onRecent" bindlongpress="onRecentRemove">{{item}}</view>
+        </scroll-view>
+        <view class="hint">保存过的地点、事件和日期会出现在「最近用过」，点一下就填好，长按可删除</view>
+      </view>
+
+      <view class="field">
+        <view class="label-row"><text class="label">事件 / 一句话</text></view>
+        <view class="input-row">
+          <input class="input" value="{{text.event}}" placeholder="例如 第一次看海" maxlength="40" data-field="eventNote" bindinput="onText" />
+          <view wx:if="{{thumbs.length > 1}}" class="side-btn" data-field="eventNote" bindtap="onSync">同步全部</view>
+        </view>
+        <scroll-view wx:if="{{recent.event.length}}" class="chips recent" scroll-x enable-flex>
+          <text class="recent-label">最近用过</text>
+          <view wx:for="{{recent.event}}" wx:key="*this" class="chip recent-chip" data-kind="event" data-value="{{item}}" data-label="{{item}}" bindtap="onRecent" bindlongpress="onRecentRemove">{{item}}</view>
+        </scroll-view>
+      </view>
+
+      <block wx:if="{{controls.postcard}}">
+        <view class="field">
+          <view class="label-row"><text class="label">明信片寄语</text></view>
+          <input class="input" value="{{text.message}}" placeholder="{{text.messagePlaceholder}}" maxlength="30" data-field="postcardMessage" bindinput="onText" />
+        </view>
+        <view class="field">
+          <view class="label-row"><text class="label">署名</text></view>
+          <input class="input" value="{{text.signature}}" placeholder="{{text.signaturePlaceholder}}" maxlength="20" data-field="postcardSignature" bindinput="onText" />
+        </view>
+      </block>
+
+      <view class="field">
+        <view class="label-row">
+          <text class="label">宝宝月龄</text>
+          <switch class="mini-switch" checked="{{style.showBabyAge}}" data-key="showBabyAge" bindchange="onToggle" color="#c0552f" />
+        </view>
+        <view class="input-row">
+          <input class="input" value="{{baby.name}}" placeholder="宝宝名字（可不填）" maxlength="12" bindinput="onBabyName" />
+          <picker mode="date" value="{{baby.birthday}}" end="{{text.pickerDate}}" bindchange="onBirthday">
+            <view class="side-btn">{{baby.birthday || '填生日'}}</view>
+          </picker>
+        </view>
+        <view wx:if="{{baby.birthday}}" class="hint">
+          这张：{{text.ageHint}}
+          <text class="link" bindtap="onClearBirthday">清除生日</text>
+        </view>
+      </view>
+
+      <view wx:if="{{text.coordinate}}" class="field">
+        <view class="label-row">
+          <text class="label">经纬度</text>
+          <switch class="mini-switch" checked="{{style.showCoordinate}}" data-key="showCoordinate" bindchange="onToggle" color="#c0552f" />
+        </view>
+        <input class="input" value="{{text.coordinate}}" data-field="editedCoordinateText" bindinput="onText" />
+      </view>
+    </view>
+
+    <!-- 样式 -->
+    <view wx:else class="panel">
+      <view class="field">
+        <view class="label">冲印尺寸</view>
+        <view class="segmented">
+          <view
+            wx:for="{{printOptions}}"
+            wx:key="id"
+            class="seg {{print.size === item.id ? 'active' : ''}}"
+            data-key="size"
+            data-id="{{item.id}}"
+            bindtap="onPrint"
+          >{{item.label}}</view>
+        </view>
+        <block wx:if="{{print.size !== 'original'}}">
+          <view class="segmented sub-seg">
+            <view class="seg {{print.fit === 'contain' ? 'active' : ''}}" data-key="fit" data-id="contain" bindtap="onPrint">完整照片</view>
+            <view class="seg {{print.fit === 'cover' ? 'active' : ''}}" data-key="fit" data-id="cover" bindtap="onPrint">铺满裁切</view>
+          </view>
+          <view class="hint">按 300 DPI 输出 {{print.size}} 寸相纸大小，文字留出 3 mm 安全边，可直接拿去冲印。「完整照片」不裁切，可能留白边。</view>
+        </block>
+      </view>
+
+      <view wx:if="{{controls.showFont}}" class="field">
+        <view class="label">字体</view>
+        <view class="segmented">
+          <view
+            wx:for="{{fontOptions}}"
+            wx:key="id"
+            class="seg {{(style.fontFamily || 'sans') === item.id ? 'active' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onFont"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label">颜色</view>
+        <view class="swatches">
+          <view
+            wx:for="{{controls.colors}}"
+            wx:key="*this"
+            class="swatch {{style.textColor === item ? 'active' : ''}}"
+            style="background:{{item}}"
+            data-color="{{item}}"
+            bindtap="onColor"
+            aria-role="button"
+            aria-label="颜色 {{item}}"
+          />
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label-row"><text class="label">字号</text><text class="value">{{controls.fontSize}}</text></view>
+        <slider min="15" max="90" value="{{controls.fontSize}}" data-key="fontSizeRatio" bindchanging="onSlide" bindchange="onSlide" activeColor="#c0552f" block-size="22" />
+      </view>
+
+      <view class="field">
+        <view class="label-row"><text class="label">文字不透明度</text><text class="value">{{controls.opacity}}%</text></view>
+        <slider min="30" max="100" value="{{controls.opacity}}" data-key="opacity" bindchanging="onSlide" bindchange="onSlide" activeColor="#c0552f" block-size="22" />
+      </view>
+
+      <view wx:if="{{controls.showBackdrop}}" class="field">
+        <view class="label">文字衬底</view>
+        <view class="segmented">
+          <view class="seg {{controls.backdrop === 'none' ? 'active' : ''}}" data-id="none" bindtap="onBackdrop">无</view>
+          <view wx:if="{{controls.allowBox}}" class="seg {{controls.backdrop === 'box' ? 'active' : ''}}" data-id="box" bindtap="onBackdrop">底板</view>
+          <view class="seg {{controls.backdrop === 'gradient' ? 'active' : ''}}" data-id="gradient" bindtap="onBackdrop">渐变压暗</view>
+        </view>
+        <block wx:if="{{controls.backdrop !== 'none'}}">
+          <view class="label-row sub"><text class="label">衬底浓度</text><text class="value">{{controls.backgroundOpacity}}%</text></view>
+          <slider min="5" max="80" value="{{controls.backgroundOpacity}}" data-key="backgroundOpacity" bindchanging="onSlide" bindchange="onSlide" activeColor="#c0552f" block-size="22" />
+        </block>
+      </view>
+
+      <view wx:if="{{controls.showPosition}}" class="field">
+        <view class="label">{{controls.positionLabel}}</view>
+        <view class="positions">
+          <view
+            wx:for="{{controls.positions}}"
+            wx:key="id"
+            class="seg {{style.position === item.id ? 'active' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onPosition"
+          >{{item.label}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="controls-end" />
+  </scroll-view>
+
+  <view wx:if="{{hasPhotos}}" class="bottom-bar">
+      <button class="btn-secondary share" bindtap="onShare">发给朋友</button>
+      <button wx:if="{{thumbs.length > 1}}" class="btn-secondary all" bindtap="onSaveAll">全部保存</button>
+      <button class="btn-primary save" bindtap="onSave">保存这张</button>
+  </view>
+
+  <canvas type="2d" id="work" class="work-canvas" />
+</view>

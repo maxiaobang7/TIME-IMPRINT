@@ -11,7 +11,10 @@
     "test:optimizations": "node scripts/check-optimizations.mjs",
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build && node scripts/build-offline.mjs",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "mp:build": "node scripts/build-miniprogram.mjs",
+    "mp:dev": "node scripts/build-miniprogram.mjs --watch",
+    "mp:check": "tsc -p miniprogram/tsconfig.json"
   },
   "engines": {
     "node": ">=22"
@@ -31,6 +34,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "esbuild": "^0.28.2",
+    "miniprogram-api-typings": "^5.3.1",
     "playwright": "^1.63.0",
     "typescript": "^5.7.2"
   }

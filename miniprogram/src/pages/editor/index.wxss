@@ -1,0 +1,395 @@
+/* Only the controls scroll. The canvas never moves: WeChat's native canvas
+   layer does not follow sticky/fixed positioning while the page scrolls. */
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.controls {
+  flex: 1;
+  min-height: 0;
+}
+
+.controls-end {
+  height: 32rpx;
+}
+
+.stage {
+  flex: none;
+  padding: 16rpx 32rpx 12rpx;
+  background: var(--bg);
+  border-bottom: 2rpx solid var(--line);
+}
+
+.canvas-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.preview {
+  display: block;
+  border-radius: 12rpx;
+  box-shadow: 0 12rpx 32rpx rgba(42, 36, 32, 0.16);
+}
+
+.notice-action {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.notice {
+  margin-top: 12rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 12rpx;
+  background: #fcefd9;
+  color: #8a5a12;
+  font-size: 22rpx;
+  text-align: center;
+}
+
+.empty {
+  padding: 120rpx 40rpx;
+  text-align: center;
+}
+
+.empty-title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.empty-text {
+  margin-top: 8rpx;
+  color: var(--muted);
+}
+
+.empty-btn {
+  margin: 48rpx auto 0;
+  width: 420rpx !important;
+}
+
+.strip-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 0 4rpx 32rpx;
+}
+
+.strip {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.strip .thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  margin-right: 12rpx;
+  border-radius: 14rpx;
+  overflow: hidden;
+  border: 4rpx solid transparent;
+  background: #ece4d8;
+  vertical-align: top;
+}
+
+.strip .thumb.active {
+  border-color: var(--accent);
+}
+
+.strip .thumb image {
+  width: 100%;
+  height: 100%;
+}
+
+.strip .add {
+  border: 2rpx dashed #c9bfb2;
+  color: var(--muted);
+  font-size: 40rpx;
+  background: var(--card);
+}
+
+.strip-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+  padding-right: 32rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+  white-space: nowrap;
+}
+
+.link {
+  margin-left: 12rpx;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.block {
+  padding: 20rpx 0 0 32rpx;
+}
+
+.block-title {
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.templates {
+  white-space: nowrap;
+}
+
+.tpl {
+  display: inline-block;
+  width: 168rpx;
+  margin-right: 16rpx;
+  vertical-align: top;
+}
+
+.tpl image {
+  display: block;
+  width: 168rpx;
+  height: 112rpx;
+  border-radius: 14rpx;
+  border: 4rpx solid transparent;
+  box-sizing: border-box;
+  background: #ece4d8;
+}
+
+.tpl.active image {
+  border-color: var(--accent);
+}
+
+.tpl-name {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  text-align: center;
+  color: var(--muted);
+}
+
+.tpl.active .tpl-name {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  margin: 28rpx 32rpx 0;
+  padding: 6rpx;
+  border-radius: 999rpx;
+  background: #ece4d8;
+}
+
+.tab {
+  flex: 1;
+  height: 68rpx;
+  border-radius: 999rpx;
+  line-height: 68rpx;
+  text-align: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tab.active {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 4rpx 12rpx rgba(42, 36, 32, 0.08);
+}
+
+.panel {
+  margin: 20rpx 24rpx 0;
+  padding: 8rpx 24rpx;
+  border-radius: 28rpx;
+  background: var(--card);
+}
+
+.field {
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid var(--line);
+}
+
+.field:last-child {
+  border-bottom: none;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48rpx;
+}
+
+.label-row.sub {
+  margin-top: 16rpx;
+}
+
+.label {
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.field > .label {
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.value {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.mini-switch {
+  transform: scale(0.8);
+  transform-origin: right center;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 12rpx;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 84rpx;
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  background: #f5f0e8;
+  font-size: 28rpx;
+}
+
+.field > .input {
+  margin-top: 12rpx;
+}
+
+.side-btn {
+  height: 84rpx;
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--line);
+  line-height: 80rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.chips {
+  margin-top: 16rpx;
+  white-space: nowrap;
+}
+
+.chips .chip {
+  margin-right: 12rpx;
+}
+
+.recent-label {
+  display: inline-block;
+  margin-right: 12rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+  vertical-align: middle;
+}
+
+.recent-chip {
+  margin-right: 12rpx;
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: #8a3c1e;
+}
+
+.sub-seg {
+  margin-top: 16rpx;
+}
+
+.hint {
+  margin-top: 10rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+}
+
+.segmented,
+.positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.positions .seg {
+  flex: 0 0 calc((100% - 24rpx) / 3);
+}
+
+.seg {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 14rpx;
+  border: 2rpx solid var(--line);
+  line-height: 68rpx;
+  text-align: center;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.seg.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+  font-weight: 600;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.swatch {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+}
+
+.swatch.active {
+  box-shadow: 0 0 0 4rpx var(--bg), 0 0 0 8rpx var(--accent);
+}
+
+slider {
+  margin: 8rpx 12rpx 0;
+}
+
+.bottom-bar {
+  flex: none;
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: rgba(247, 242, 234, 0.96);
+  border-top: 2rpx solid var(--line);
+}
+
+.bottom-bar .share,
+.bottom-bar .all {
+  flex: 0 0 190rpx;
+  width: 190rpx !important;
+}
+
+.bottom-bar .save {
+  flex: 1;
+}
+
+/* Full-size export canvas: off screen, never shown. */
+.work-canvas {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 300px;
+  height: 300px;
+}
