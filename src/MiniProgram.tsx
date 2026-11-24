@@ -39,8 +39,8 @@ export function HeaderMiniProgram() {
           </button>
           <img src={qrSrc} alt="时光印记微信小程序码" width={168} height={168} />
           <strong>
-            <span className="mp-card-desktop">微信扫一扫，打开小程序</span>
-            <span className="mp-card-mobile">在微信里长按识别小程序码</span>
+            <span className="mp-desktop">微信扫一扫，打开小程序</span>
+            <span className="mp-mobile">在微信里长按识别小程序码</span>
           </strong>
           <p>在微信里给照片印日期、拼成长拼图，发给家人更方便。</p>
         </div>
@@ -49,20 +49,25 @@ export function HeaderMiniProgram() {
   );
 }
 
-/** First-screen card: the mini program code with a short reason to use it. */
-export function MiniProgramCard() {
+/** Full-width band under the steps: the mini program code with what it is good for. */
+export function MiniProgramBand() {
   return (
-    <aside className="mp-card" aria-label="微信小程序">
-      <img src={qrSrc} alt="时光印记微信小程序码" width={96} height={96} />
-      <div>
-        <span className="mp-card-badge">微信小程序</span>
-        <strong>在微信里也能用</strong>
+    <section className="mp-band" aria-labelledby="mp-band-title">
+      <img src={qrSrc} alt="时光印记微信小程序码" width={112} height={112} />
+      <div className="mp-band-copy">
+        <span className="mp-badge">微信小程序</span>
+        <h2 id="mp-band-title">不想开电脑？微信里也能用</h2>
         <p>
-          <span className="mp-card-desktop">微信扫码打开，</span>
-          <span className="mp-card-mobile">在微信里长按识别，</span>
-          照片在手机上完成，还能做成长拼图。
+          <span className="mp-desktop">微信扫一扫左边的小程序码，</span>
+          <span className="mp-mobile">在微信里长按识别小程序码，</span>
+          选照片、填日期，几秒印好，直接发给家人。
         </p>
       </div>
-    </aside>
+      <ul className="mp-band-points">
+        <li>同样 10 款水印风格</li>
+        <li>成长拼图、今年去年对比</li>
+        <li>保存到相册或发给朋友</li>
+      </ul>
+    </section>
   );
 }

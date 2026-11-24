@@ -12,7 +12,7 @@ import {
   Printer,
 } from "lucide-react";
 import { defaultTemplates } from "./data/templates";
-import { MiniProgramCard } from "./MiniProgram";
+import { MiniProgramBand } from "./MiniProgram";
 import type { TemplateCategory, WatermarkTemplate } from "./types";
 
 const steps = [
@@ -84,7 +84,6 @@ export function StudioHome(props: {
             <li><b>EXIF</b>自动读时间地点</li>
             <li><b>ZIP · PDF</b>批量导出</li>
           </ul>
-          <MiniProgramCard />
         </div>
         <div className="hero-visual" aria-label="水印示例">
           <img className="hero-back hero-back-a" src={`/studio/previews/${backA.id}-thumb.webp`} alt="" loading="lazy" decoding="async" />
@@ -110,6 +109,8 @@ export function StudioHome(props: {
           </div>
         ))}
       </section>
+
+      <MiniProgramBand />
 
       <section className="home-templates" id="templates">
         <div className="section-head">
