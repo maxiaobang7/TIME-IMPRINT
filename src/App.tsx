@@ -5,6 +5,7 @@ import { babyAgeText, dateFormats, formatDateAs, parseAnyDate, photoDateOf } fro
 import { fontOptions } from "./services/fonts";
 import type { DragEvent } from "react";
 import { StudioHome, StudioTemplateLibrary } from "./Studio";
+import { HeaderMiniProgram } from "./MiniProgram";
 import { SavePhotoDialog } from "./SavePhotoDialog";
 import { isAppleMobile } from "./services/export";
 import { defaultTemplates } from "./data/templates";
@@ -665,6 +666,7 @@ export function App() {
               设置
             </button>
           </nav>
+          <HeaderMiniProgram />
           <button
             className="header-import"
             onClick={pick}

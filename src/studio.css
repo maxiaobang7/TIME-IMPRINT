@@ -115,6 +115,33 @@ button.active, button.selected, button[aria-pressed="true"] {
 .studio-header nav button { border: 0; background: transparent; padding: 6px 18px; min-height: 32px; border-radius: 999px; color: var(--ink-2); font-size: 13.5px; }
 .studio-header nav button:hover { color: var(--ink); background: #fff8; }
 .studio-header nav button.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+/* Mini program entry: header button with a code popover. */
+.header-mp { position: relative; margin-left: auto; }
+.header-mp-button { border-radius: 999px; padding: 7px 14px; gap: 6px; font-weight: 600; color: #07a356; background: #e8f8ee; border-color: #bfe9cf; }
+.header-mp-button:hover, .header-mp-button.open { background: #d9f3e3; border-color: #95dbb0; color: #058a48; }
+.header-mp-pop {
+  position: absolute; right: 0; top: calc(100% + 10px); z-index: 50; width: 236px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 18px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg, 0 18px 40px #3a2a1a24);
+  text-align: center;
+}
+.header-mp-pop img { width: 168px; height: 168px; display: block; margin-bottom: 6px; }
+.header-mp-pop strong { font-size: 14px; }
+.header-mp-pop p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.header-mp-close { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.header-mp + .header-import { margin-left: 10px; }
+
+.mp-card {
+  display: flex; align-items: center; gap: 16px; margin-top: 28px; padding: 14px 20px 14px 14px; max-width: 420px;
+  background: var(--surface); border: 1px solid #bfe9cf; border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.mp-card img { width: 96px; height: 96px; flex-shrink: 0; display: block; }
+.mp-card > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+.mp-card-badge { font-size: 11.5px; font-weight: 600; color: #07a356; background: #e8f8ee; padding: 2px 9px; border-radius: 999px; }
+.mp-card strong { font-size: 16px; }
+.mp-card p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--ink-2); }
+.mp-card-mobile { display: none; }
+
 .header-import { margin-left: auto; background: var(--ink); color: #fff; border-color: var(--ink); border-radius: 999px; padding: 8px 18px; font-weight: 600; }
 .header-import:hover { background: #000; border-color: #000; color: #fff; }
 
@@ -512,6 +539,7 @@ legend { font-size: 12.5px; font-weight: 600; color: var(--ink-2); padding: 0 4p
   .hero { grid-template-columns: 1fr; gap: 36px; padding: 36px 20px 56px; text-align: center; }
   .hero-copy > p { margin: 0 auto; }
   .hero-actions, .hero-facts { justify-content: center; }
+  .mp-card { margin-left: auto; margin-right: auto; }
   .hero-visual { min-height: 0; padding: 12px 8% 28px; }
   .home-steps { grid-template-columns: 1fr; }
 }
@@ -523,6 +551,15 @@ legend { font-size: 12.5px; font-weight: 600; color: var(--ink-2); padding: 0 4p
   .studio-header nav button { font-size: 12.5px; padding: 5px 11px; min-height: 30px; }
   .header-import { width: 36px; height: 36px; min-height: 0; padding: 0; margin: 0; }
   .header-import span { display: none; }
+  .brand, .studio-header nav button { white-space: nowrap; }
+  .header-mp { margin-left: 0; }
+  .header-mp-button { width: 36px; height: 36px; min-height: 0; padding: 0; }
+  .header-mp-button span { display: none; }
+  .header-mp + .header-import { margin-left: 0; }
+  .header-mp-pop { position: fixed; top: 64px; right: 12px; }
+  .mp-card { margin: 24px auto 0; }
+  .mp-card-desktop { display: none; }
+  .mp-card-mobile { display: inline; }
 
   .hero h1 { font-size: 32px; margin: 18px 0 14px; }
   .hero-copy > p { font-size: 14.5px; }
@@ -581,11 +618,17 @@ legend { font-size: 12.5px; font-weight: 600; color: var(--ink-2); padding: 0 4p
   .control-stack { gap: 16px; }
   input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="color"]), select { font-size: 16px; height: 44px; }
 }
+@media (max-width: 420px) {
+  .studio-header { gap: 6px; }
+  .studio-header nav button { padding: 5px 8px; }
+  .brand { font-size: 16px; gap: 6px; }
+}
 @media (max-width: 360px) {
   .studio-header { padding: 0 10px; gap: 6px; }
   .brand { font-size: 15px; white-space: nowrap; }
   .studio-header nav button { padding: 5px 8px; }
   .header-import { width: 32px; height: 32px; }
+  .header-mp-button { width: 32px; height: 32px; }
   .inspector .studio-template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
